@@ -186,6 +186,6 @@ public class MappingEnumTests
 				BuildOption(0, "No"))
 		};
 
-		Assert.ThrowsException<InvalidOperationException>(() => MappingEnum.Parse(attr));
+		Assert.ThrowsExactly<InvalidOperationException>(() => MappingEnum.Parse(attr));
 	}
 }

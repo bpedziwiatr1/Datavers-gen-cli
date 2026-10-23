@@ -21,7 +21,7 @@ public class Office365Tests
 	[TestMethod]
 	public void Office365_MissingUrl_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator(
 				"AuthType=Office365;Username=jsmith@contoso.onmicrosoft.com;Password=passcode;").Validate());
 	}
@@ -29,7 +29,7 @@ public class Office365Tests
 	[TestMethod]
 	public void Office365_MissingUsername_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator(
 				"AuthType=Office365;Password=passcode;Url=https://contoso.crm.dynamics.com;").Validate());
 	}
@@ -37,7 +37,7 @@ public class Office365Tests
 	[TestMethod]
 	public void Office365_NoPasswordAndNoIntegratedSecurity_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator(
 				"AuthType=Office365;Username=jsmith@contoso.onmicrosoft.com;Url=https://contoso.crm.dynamics.com;").Validate());
 	}
@@ -45,7 +45,7 @@ public class Office365Tests
 	[TestMethod]
 	public void Office365_IntegratedSecurityFalseWithoutPassword_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator(
 				"AuthType=Office365;Username=jsmith@contoso.onmicrosoft.com;Integrated Security=false;Url=https://contoso.crm.dynamics.com;").Validate());
 	}

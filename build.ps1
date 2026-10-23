@@ -7,8 +7,10 @@ function main([bool]$clearPublish) {
    buildPackage($false)
 }
 function buildPackage([bool]$selfContainer){
-	Remove-Item .\publish\bin -Recurse -ErrorAction Ignore    
-	dotnet publish "DataverseGen.Cli/DataverseGen.Cli.csproj" /p:DebugType=None /p:DebugSymbols=false -c 'Release' -f "net7.0" -r win-x64 -p:PublishSingleFile=true --self-contained $selfContainer -p:PublishReadyToRun=true -p:PublishDir=$currentPath\publish\bin	
+	Remove-Item .\publish\bin -Recurse -ErrorAction Ignore
+	# ReadyToRun/single-file intermediates of the self-contained publish break the framework-dependent one (crash in coreclr)
+	Remove-Item .\DataverseGen.Cli\obj\Release\net10.0\win-x64 -Recurse -ErrorAction Ignore
+	dotnet publish "DataverseGen.Cli/DataverseGen.Cli.csproj" /p:DebugType=None /p:DebugSymbols=false -c 'Release' -f "net10.0" -r win-x64 -p:PublishSingleFile=true --self-contained $selfContainer -p:PublishReadyToRun=true -p:PublishDir=$currentPath\publish\bin	
     Set-Location $currentPath
     copyTemplates
     MakeZip $currentPath $selfContainer
@@ -31,7 +33,7 @@ function MakeZip([string]$currentPath,[bool]$selfContainer){
     $compress = @{
         Path = $currentPath+"/publish/bin/**"
         CompressionLevel = "Fastest"
-        DestinationPath = $currentPath+"/publish/DataverseGen-CLI_" +$containerName+"_"+$gitv.NuGetVersionV2+".zip"
+        DestinationPath = $currentPath+"/publish/DataverseGen-CLI_" +$containerName+"_"+$gitv.SemVer+".zip"
       }
       Compress-Archive @compress
 }

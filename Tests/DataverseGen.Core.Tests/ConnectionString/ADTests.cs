@@ -18,21 +18,21 @@ public class AdTests
 	[TestMethod]
 	public void AD_MissingUrl_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator("AuthType=AD;").Validate());
 	}
 
 	[TestMethod]
 	public void AD_InvalidUrlScheme_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator("AuthType=AD;Url=ftp://contoso:8080/Test;").Validate());
 	}
 
 	[TestMethod]
 	public void AD_MalformedUrl_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator("AuthType=AD;Url=not-a-url;").Validate());
 	}
 
@@ -40,7 +40,7 @@ public class AdTests
 	public void AD_WhitespaceUrlValue_Throws()
 	{
 		// Tests ValidatorTokenHelper.CheckIfTokenValuePresent — empty-after-trim path
-		Assert.ThrowsException<ArgumentNullException>(() =>
+		Assert.ThrowsExactly<ArgumentNullException>(() =>
 			new ConnectionStringValidator("AuthType=AD;Url= ;").Validate());
 	}
 }

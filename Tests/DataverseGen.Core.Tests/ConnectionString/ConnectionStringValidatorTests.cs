@@ -11,21 +11,21 @@ public class ConnectionStringValidatorTests
 	[DataRow("no-equals-sign")]
 	public void Validate_InvalidFormat_ThrowsArgumentException(string connectionString)
 	{
-		Assert.ThrowsException<ArgumentException>(() =>
+		Assert.ThrowsExactly<ArgumentException>(() =>
 			new ConnectionStringValidator(connectionString).Validate());
 	}
 
 	[TestMethod]
 	public void Validate_NoAuthToken_ThrowsException()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator("SomeKey=value;Url=https://contoso.crm.dynamics.com;").Validate());
 	}
 
 	[TestMethod]
 	public void Validate_UnknownAuthType_ThrowsNotImplementedException()
 	{
-		Assert.ThrowsException<NotImplementedException>(() =>
+		Assert.ThrowsExactly<NotImplementedException>(() =>
 			new ConnectionStringValidator("AuthType=Basic;Url=https://contoso.crm.dynamics.com;").Validate());
 	}
 
