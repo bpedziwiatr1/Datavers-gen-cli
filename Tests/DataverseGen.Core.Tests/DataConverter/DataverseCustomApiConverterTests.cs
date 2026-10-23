@@ -68,7 +68,7 @@ public class DataverseCustomApiConverterTests
 		Assert.AreEqual(second.Id, filtered[0].Id);
 	}
 
-	[DataTestMethod]
+	[TestMethod]
 	[DataRow("Collection of strings", "", "string[]", "string[]", "Collection(Edm.String)", "WebApiRequestStructuralProperty.Collection")]
 	[DataRow("Entity", "account", "any", "EntityReference", "mscrm.account", "WebApiRequestStructuralProperty.EntityType")]
 	[DataRow("Whole Number", "", "number", "int", "Edm.Int32", "WebApiRequestStructuralProperty.PrimitiveType")]

@@ -90,7 +90,7 @@ public class ConfigModelTests
 	[TestMethod]
 	public void ConfigValidation_ThrowsWhenConfigIsNull()
 	{
-		Assert.ThrowsException<ArgumentNullException>(() => ConfigValidation.Validate(null));
+		Assert.ThrowsExactly<ArgumentNullException>(() => ConfigValidation.Validate(null));
 	}
 
 	[TestMethod]
@@ -98,7 +98,7 @@ public class ConfigModelTests
 	{
 		var model = new ConfigModel();
 
-		Assert.ThrowsException<InvalidOperationException>(() => ConfigValidation.Validate(model));
+		Assert.ThrowsExactly<InvalidOperationException>(() => ConfigValidation.Validate(model));
 	}
 
 	[TestMethod]

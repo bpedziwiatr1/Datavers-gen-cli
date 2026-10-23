@@ -1,0 +1,2 @@
+# Scriban characterization baselines must be compared byte-for-byte (mixed LF/CRLF output)
+Tests/DataverseGen.Core.Tests/Generators/Baselines/** -text

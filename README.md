@@ -1,6 +1,6 @@
 # Datavers-gen-cli
 
-Dataverse early-bound generator for Power Platform, built as a .NET 7 CLI on top of Scriban templates.
+Dataverse early-bound generator for Power Platform, built as a .NET 10 CLI on top of Scriban templates.
 
 ## What Changed Recently
 
@@ -209,6 +209,6 @@ Then reference the template folder name in the config:
 
 ## Development Notes
 
-- The solution targets `net7.0`.
+- The solution targets `net10.0` (SDK pinned in `global.json`).
 - Run `dotnet test DataverseGen.sln` after changing generator logic.
 - The test project is `Tests/DataverseGen.Core.Tests`.

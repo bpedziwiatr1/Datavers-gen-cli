@@ -41,7 +41,7 @@ public class OAuthTests
 		const string cs =
 			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Password=passcode;" +
 			@"AppId=abc;RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsException<Exception>(() => new ConnectionStringValidator(cs).Validate());
+		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
 
 	[TestMethod]
@@ -50,7 +50,7 @@ public class OAuthTests
 		const string cs =
 			@"AuthType=OAuth;Password=passcode;Url=https://contoso.crm.dynamics.com;" +
 			@"AppId=abc;RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsException<Exception>(() => new ConnectionStringValidator(cs).Validate());
+		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
 
 	[TestMethod]
@@ -60,7 +60,7 @@ public class OAuthTests
 			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;" +
 			@"Url=https://contoso.crm.dynamics.com;" +
 			@"AppId=abc;RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsException<Exception>(() => new ConnectionStringValidator(cs).Validate());
+		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
 
 	[TestMethod]
@@ -70,7 +70,7 @@ public class OAuthTests
 			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Integrated Security=false;" +
 			@"Url=https://contoso.crm.dynamics.com;" +
 			@"AppId=abc;RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsException<Exception>(() => new ConnectionStringValidator(cs).Validate());
+		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
 
 	[TestMethod]
@@ -80,7 +80,7 @@ public class OAuthTests
 			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Password=passcode;" +
 			@"Url=https://contoso.crm.dynamics.com;" +
 			@"RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsException<Exception>(() => new ConnectionStringValidator(cs).Validate());
+		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
 
 	[TestMethod]
@@ -90,7 +90,7 @@ public class OAuthTests
 			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Password=passcode;" +
 			@"Url=https://contoso.crm.dynamics.com;" +
 			@"AppId=abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsException<Exception>(() => new ConnectionStringValidator(cs).Validate());
+		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
 
 	[TestMethod]
@@ -100,6 +100,6 @@ public class OAuthTests
 			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Password=passcode;" +
 			@"Url=https://contoso.crm.dynamics.com;" +
 			@"AppId=abc;RedirectUri=app://abc;";
-		Assert.ThrowsException<Exception>(() => new ConnectionStringValidator(cs).Validate());
+		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
 }

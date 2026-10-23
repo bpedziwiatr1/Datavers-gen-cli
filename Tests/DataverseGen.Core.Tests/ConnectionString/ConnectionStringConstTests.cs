@@ -26,7 +26,7 @@ public class ConnectionStringConstTests
 	[DataRow("")]
 	public void Map_UnknownAuthType_ThrowsNotImplementedException(string authType)
 	{
-		Assert.ThrowsException<NotImplementedException>(() => ConnectionStringConst.Map(authType));
+		Assert.ThrowsExactly<NotImplementedException>(() => ConnectionStringConst.Map(authType));
 	}
 
 	[TestMethod]
@@ -54,7 +54,7 @@ public class ConnectionStringConstTests
 	{
 		var tokens = new Dictionary<string, string> { { "Url", "https://contoso.crm.dynamics.com" } };
 
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			ConnectionStringConst.GetToken(tokens, ConnectionStringConst.Auth));
 	}
 
@@ -63,7 +63,7 @@ public class ConnectionStringConstTests
 	{
 		var tokens = new Dictionary<string, string>();
 
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			ConnectionStringConst.GetToken(tokens, ConnectionStringConst.Auth));
 	}
 }

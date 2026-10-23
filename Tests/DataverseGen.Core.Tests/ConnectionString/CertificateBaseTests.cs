@@ -19,7 +19,7 @@ public class CertificateBaseTests
 	[TestMethod]
 	public void Certificate_MissingThumbprint_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator(
 				"AuthType=Certificate;url=https://contoso.crm.dynamics.com;ClientId=abc;").Validate());
 	}
@@ -27,7 +27,7 @@ public class CertificateBaseTests
 	[TestMethod]
 	public void Certificate_MissingClientId_Throws()
 	{
-		Assert.ThrowsException<Exception>(() =>
+		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator(
 				"AuthType=Certificate;url=https://contoso.crm.dynamics.com;thumbprint=ABC123;").Validate());
 	}

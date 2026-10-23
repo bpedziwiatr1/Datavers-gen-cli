@@ -23,11 +23,11 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 7.0.x
+          dotnet-version: 10.0.x
 
       - name: Install GitVersion tool
         shell: pwsh
-        run: dotnet tool install --global GitVersion.Tool --version 5.12.0
+        run: dotnet tool install --global GitVersion.Tool --version 6.8.2
 
       - name: Add dotnet tools to PATH
         shell: pwsh
@@ -49,7 +49,7 @@ jobs:
         shell: pwsh
         run: |
           $gitv = dotnet-gitversion | ConvertFrom-Json -ErrorAction Stop
-          $tag = "v$($gitv.NuGetVersionV2)"
+          $tag = "v$($gitv.SemVer)"
           $title = "Release $tag"
           $notesPath = Join-Path $env:GITHUB_WORKSPACE 'release-notes.md'
           $previousTag = git describe --tags --abbrev=0 --match "v*" 2>$null
@@ -125,7 +125,6 @@ jobs:
             "- Release branch: `$env:GITHUB_REF_NAME`"
             "- Version: `$($gitv.FullSemVer)`"
             "- SemVer: `$($gitv.SemVer)`"
-            "- NuGetVersion: `$($gitv.NuGetVersionV2)`"
             "- Commit: `$($gitv.Sha)`"
             "- Base tag: `$($previousTag ?? 'none')`"
             "- Commit range: `$commitRange`"
@@ -135,8 +134,8 @@ jobs:
             ''
             '## Packages'
             ''
-            "- `DataverseGen-CLI_includedotnet_$($gitv.NuGetVersionV2).zip`"
-            "- `DataverseGen-CLI_nodotnet_$($gitv.NuGetVersionV2).zip`"
+            "- `DataverseGen-CLI_includedotnet_$($gitv.SemVer).zip`"
+            "- `DataverseGen-CLI_nodotnet_$($gitv.SemVer).zip`"
           )
 
           $releaseNotes | Set-Content -Path $notesPath -Encoding utf8
