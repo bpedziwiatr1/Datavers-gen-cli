@@ -29,10 +29,40 @@ public class CustomApiBaselineTests
 		AssertMatchesBaseline("customapi-ts", "ts", CustomApiTypeScriptGenerator.RenderRequestClass);
 	}
 
+	[TestMethod]
+	public void RenderResponseClass_CSharp_MatchesBaseline()
+	{
+		AssertMatchesBaseline("customapi-response-csharp",
+			"cs",
+			model => CustomApiCSharpGenerator.RenderResponseClass(Namespace, model),
+			BuildResponseModels(),
+			m => m.ResponseClassName);
+	}
+
+	[TestMethod]
+	public void RenderResponseInterface_TypeScript_MatchesBaseline()
+	{
+		AssertMatchesBaseline("customapi-response-ts",
+			"ts",
+			CustomApiTypeScriptGenerator.RenderResponseInterface,
+			BuildResponseModels(),
+			m => m.ResponseClassName);
+	}
+
 	private static void AssertMatchesBaseline(string scenario, string extension, Func<CustomApiModel, string> render)
 	{
-		Dictionary<string, string> actual = BuildModels()
-		   .ToDictionary(m => $"{m.RequestClassName.ToLowerInvariant()}.{extension}", render);
+		AssertMatchesBaseline(scenario, extension, render, BuildModels(), m => m.RequestClassName);
+	}
+
+	private static void AssertMatchesBaseline(
+		string scenario,
+		string extension,
+		Func<CustomApiModel, string> render,
+		CustomApiModel[] models,
+		Func<CustomApiModel, string> className)
+	{
+		Dictionary<string, string> actual = models
+		   .ToDictionary(m => $"{className(m).ToLowerInvariant()}.{extension}", render);
 		string baselineDirectory = Path.Combine(GetSourceDirectory(), "Baselines", scenario);
 
 		if (Environment.GetEnvironmentVariable(UpdateBaselinesVariable) == "1")
@@ -111,6 +141,27 @@ public class CustomApiBaselineTests
 				OperationName = "newkeyword",
 				RequestParameters =
 				[
+					Parameter("Private", "private", "string", "string", "Edm.String", "WebApiRequestStructuralProperty.PrimitiveType")
+				]
+			}
+		];
+	}
+
+	private static CustomApiModel[] BuildResponseModels()
+	{
+		return
+		[
+			new CustomApiModel
+			{
+				RequestClassName = "GetStatusRequest",
+				ResponseClassName = "GetStatusResponse",
+				OperationName = "newgetstatus",
+				ResponseProperties =
+				[
+					Parameter("Status Text", "statustext", "string", "string", "Edm.String", "WebApiRequestStructuralProperty.PrimitiveType", description: "Status & <details>"),
+					Parameter("Count", "count", "int", "number", "Edm.Int32", "WebApiRequestStructuralProperty.PrimitiveType"),
+					Parameter("Account", "account", "Entity", "any", "mscrm.crmbaseentity", "WebApiRequestStructuralProperty.EntityType"),
+					Parameter("Accounts", "accounts", "EntityCollection", "any[]", "Collection(mscrm.crmbaseentity)", "WebApiRequestStructuralProperty.Collection"),
 					Parameter("Private", "private", "string", "string", "Edm.String", "WebApiRequestStructuralProperty.PrimitiveType")
 				]
 			}

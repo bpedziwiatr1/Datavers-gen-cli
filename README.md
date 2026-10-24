@@ -47,8 +47,14 @@ dotnet run --project DataverseGen.Cli
     "contact"
   ],
   "ConnectionString": "AuthType=ClientSecret;Url={url};ClientId={ClientId};ClientSecret={ClientSecret}",
+  "CustomApis": [
+    "newupdatestatus"
+  ],
   "Namespace": "sad.Dataverse.DataAccess.Entities",
   "OutDirectory": "Dataverse",
+  "EntitiesOutDirectory": "Dataverse/Entities",
+  "CustomApiOutDirectory": "Dataverse/CustomApis",
+  "LegacyEntityFileNames": false,
   "TemplateName": "Main",
   "TemplateDirectoryName": "Templates",
   "EnableConnectionStringValidation": true,
@@ -60,6 +66,8 @@ dotnet run --project DataverseGen.Cli
   }
 }
 ```
+
+`EntitiesOutDirectory`, `CustomApiOutDirectory`, `CustomApis` and `LegacyEntityFileNames` are optional (see [Configuration Fields](#configuration-fields)).
 
 ### TypeScript output
 
@@ -139,6 +147,8 @@ The generated wrappers use:
 
 If `CustomApis` is omitted or empty, no custom APIs are generated and only a warning is shown.
 
+For APIs that define response properties, a typed response is generated next to the request in a separate file, `<name>response.customapi.cs|ts` (e.g. `getstatusresponse.customapi.cs`): in C# a `XxxResponse : OrganizationResponse` class reading `Results`, in TypeScript an `export interface XxxResponse`. APIs without response properties get no response file.
+
 Each selected API is logged (`Found custom API: ...` when loaded, `Generated custom API: ... -> <file>` when written). Files from older versions (`<name>.cs`/`<name>.ts`) are not removed; delete them manually after upgrading.
 
 ### Filtering custom APIs
@@ -155,6 +165,51 @@ Use `CustomApis` to limit custom API generation to specific `uniquename` values:
 ```
 
 The names are matched against the Dataverse `uniquename` field, case-insensitively.
+
+### Using generated custom APIs
+
+Assume a custom API `newgetstatus` with a request parameter `customerid` (string) and response properties `statustext` (string) and `count` (int). The generator produces `GetStatusRequest` and `GetStatusResponse`.
+
+#### C#
+
+The request derives from `OrganizationRequest`, the response from `OrganizationResponse`. `IOrganizationService.Execute` returns the base `OrganizationResponse`, so wrap its `Results` in the generated response class:
+
+```csharp
+using Microsoft.Xrm.Sdk;
+using MyApp.CustomApis; // the configured Namespace
+
+IOrganizationService service = ...; // e.g. ServiceClient
+
+GetStatusRequest request = new GetStatusRequest("c0ffee00-0000-0000-0000-000000000001");
+
+OrganizationResponse raw = service.Execute(request);
+GetStatusResponse response = new GetStatusResponse { Results = raw.Results };
+
+string status = response.StatusText;
+int count = response.Count;
+```
+
+Bound APIs take the target record as the last constructor argument (`new ProcessStatusRequest(flag, names, new EntityReference("account", id))`), optional parameters are optional constructor arguments. Parameter and response keys are also available as constants, e.g. `GetStatusResponse.ParameterNames.StatusText`.
+
+#### TypeScript
+
+The request is the default export of `<name>request.customapi.ts` and exposes `getInternalRequest()`, which is what `Xrm.WebApi.online.execute` expects. The response is only an interface (`export interface`), so type the parsed JSON body with it:
+
+```ts
+import GetStatusRequest from "./customapi/getstatusrequest.customapi";
+import { GetStatusResponse } from "./customapi/getstatusresponse.customapi";
+
+async function getStatus(customerId: string): Promise<GetStatusResponse> {
+	const request = new GetStatusRequest(customerId);
+	const httpResponse = await Xrm.WebApi.online.execute(request.getInternalRequest());
+
+	return (await httpResponse.json()) as GetStatusResponse;
+}
+
+const { statustext, count } = await getStatus("c0ffee00-0000-0000-0000-000000000001");
+```
+
+The generated request refers to `IWebApiRequest`, `IWebApiInternalRequest`, `WebApiRequestStructuralProperty` and `WebApiRequestOperationType`; these types must exist in your project (they are not generated).
 
 ## Configuration Fields
 
@@ -210,6 +265,8 @@ Then reference the template folder name in the config:
 ### Custom API template
 
 The custom API request wrappers written to `CustomApiOutDirectory` (default `<entities folder>/customapi/`) are rendered from one template per output type. A project template set may contain an optional `customapi.sbncs`; when it is missing, the built-in one is used. The `Multiple/Main` and `Multiple/TS-Main` example templates include a copy to start from.
+
+Response files use a second optional template, `customapi.response.sbncs`, with the same fallback to the built-in one. Its variables are `namespace` (C# only), `class_name` and `properties` (each with `type`/`type_script_type`, `property_name`, `request_property_name` and, in C#, `summary`).
 
 Variables available in `customapi.sbncs` (Scriban snake_case names):
 

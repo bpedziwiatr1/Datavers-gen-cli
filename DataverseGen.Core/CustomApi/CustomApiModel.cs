@@ -41,6 +41,9 @@ public class CustomApiModel
 	public string RequestClassName { get; set; }
 
 	[JsonProperty]
+	public string ResponseClassName { get; set; }
+
+	[JsonProperty]
 	public CustomApiParameterModel[] RequestParameters { get; set; } = Array.Empty<CustomApiParameterModel>();
 
 	[JsonProperty]

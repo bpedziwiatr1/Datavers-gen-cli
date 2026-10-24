@@ -7,6 +7,43 @@ namespace DataverseGen.Core.Tests.Generators;
 public class CustomApiTypeScriptGeneratorTests
 {
 	[TestMethod]
+	public void WriteCustomApis_WritesResponseInterfaceOnlyWhenResponsePropertiesExist()
+	{
+		string tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(tempRoot);
+
+		try
+		{
+			CustomApiTypeScriptGenerator.WriteCustomApis(tempRoot, new[]
+			{
+				new CustomApiModel { RequestClassName = "PingRequest", ResponseClassName = "PingResponse", OperationName = "newping" },
+				new CustomApiModel
+				{
+					RequestClassName = "GetStatusRequest",
+					ResponseClassName = "GetStatusResponse",
+					OperationName = "newgetstatus",
+					ResponseProperties = new[]
+					{
+						new CustomApiParameterModel { RequestPropertyName = "statustext", TypeScriptType = "string" }
+					}
+				}
+			});
+
+			Assert.IsFalse(File.Exists(Path.Combine(tempRoot, "pingresponse.customapi.ts")));
+			string content = File.ReadAllText(Path.Combine(tempRoot, "getstatusresponse.customapi.ts"));
+			StringAssert.Contains(content, "export interface GetStatusResponse");
+			StringAssert.Contains(content, "statustext: string;");
+		}
+		finally
+		{
+			if (Directory.Exists(tempRoot))
+			{
+				Directory.Delete(tempRoot, true);
+			}
+		}
+	}
+
+	[TestMethod]
 	public void WriteCustomApis_CreatesTypeScriptRequestClass()
 	{
 		string tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

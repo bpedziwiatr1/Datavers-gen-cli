@@ -22,6 +22,19 @@ public class CustomApiCSharpView
 	public List<CustomApiCSharpParameterView> Properties { get; set; } = [];
 }
 
+/// <summary>
+///  Template model of a single custom API C# response class. Members are exposed to Scriban in snake_case.
+/// </summary>
+public class CustomApiCSharpResponseView
+{
+	public string Namespace { get; set; }
+
+	public string ClassName { get; set; }
+
+	/// <summary>Response properties; <c>request_property_name</c> is the key in OrganizationResponse.Results.</summary>
+	public List<CustomApiCSharpParameterView> Properties { get; set; } = [];
+}
+
 public class CustomApiCSharpParameterView
 {
 	/// <summary>C# type; optional value types are already nullable (e.g. <c>int?</c>).</summary>

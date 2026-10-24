@@ -12,7 +12,11 @@ public static class CustomApiTypeScriptGenerator
 		WriteCustomApis(outPath, customApis, CustomApiTemplates.LoadBuiltIn(true));
 	}
 
-	public static void WriteCustomApis(string outPath, IEnumerable<CustomApiModel> customApis, Template template)
+	public static void WriteCustomApis(
+		string outPath,
+		IEnumerable<CustomApiModel> customApis,
+		Template template,
+		Template responseTemplate = null)
 	{
 		if (customApis == null)
 		{
@@ -27,7 +31,38 @@ public static class CustomApiTypeScriptGenerator
 			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.ts");
 			File.WriteAllText(filePath, RenderRequestClass(customApi, template), Encoding.UTF8);
 			Console.WriteLine($@"Generated custom API: {customApi.UniqueName} -> {filePath}");
+
+			if (customApi.ResponseProperties is not { Length: > 0 })
+			{
+				continue;
+			}
+
+			responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(true);
+			string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.ts");
+			File.WriteAllText(responsePath, RenderResponseInterface(customApi, responseTemplate), Encoding.UTF8);
+			Console.WriteLine($@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
 		}
+	}
+
+	internal static string RenderResponseInterface(CustomApiModel customApi)
+	{
+		return RenderResponseInterface(customApi, CustomApiTemplates.LoadBuiltInResponse(true));
+	}
+
+	internal static string RenderResponseInterface(CustomApiModel customApi, Template template)
+	{
+		return CustomApiTemplates.Render(template, BuildResponseView(customApi));
+	}
+
+	internal static CustomApiTypeScriptResponseView BuildResponseView(CustomApiModel customApi)
+	{
+		return new CustomApiTypeScriptResponseView
+		{
+			ClassName = customApi.ResponseClassName,
+			Properties = customApi.ResponseProperties
+			   .Select(p => ToView(p, false))
+			   .ToList()
+		};
 	}
 
 	internal static string RenderRequestClass(CustomApiModel customApi)

@@ -336,6 +336,52 @@ public class CustomApiCSharpGeneratorTests
 	}
 
 	[TestMethod]
+	public void WriteCustomApis_WritesResponseClassOnlyWhenResponsePropertiesExist()
+	{
+		string tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(tempRoot);
+
+		try
+		{
+			CustomApiCSharpGenerator.WriteCustomApis(tempRoot,
+				"MyApp.CustomApis",
+				new[]
+				{
+					new CustomApiModel { RequestClassName = "PingRequest", ResponseClassName = "PingResponse", OperationName = "newping" },
+					new CustomApiModel
+					{
+						RequestClassName = "GetStatusRequest",
+						ResponseClassName = "GetStatusResponse",
+						OperationName = "newgetstatus",
+						ResponseProperties = new[]
+						{
+							new CustomApiParameterModel
+							{
+								DisplayName = "Status Text",
+								UniqueName = "statustext",
+								RequestPropertyName = "statustext",
+								CSharpTypeName = "string"
+							}
+						}
+					}
+				});
+
+			Assert.IsFalse(File.Exists(Path.Combine(tempRoot, "pingresponse.customapi.cs")));
+			string content = File.ReadAllText(Path.Combine(tempRoot, "getstatusresponse.customapi.cs"));
+			StringAssert.Contains(content, "public sealed class GetStatusResponse : OrganizationResponse");
+			StringAssert.Contains(content, "public const string StatusText = \"statustext\";");
+			StringAssert.Contains(content, "public string StatusText => Results.TryGetValue(ParameterNames.StatusText");
+		}
+		finally
+		{
+			if (Directory.Exists(tempRoot))
+			{
+				Directory.Delete(tempRoot, true);
+			}
+		}
+	}
+
+	[TestMethod]
 	public void WriteCustomApis_ReturnsWhenEnumerableIsNull()
 	{
 		string tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

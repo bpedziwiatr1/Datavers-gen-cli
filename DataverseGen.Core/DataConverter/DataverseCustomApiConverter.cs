@@ -62,9 +62,9 @@ public class DataverseCustomApiConverter
 		List<Entity> responsePropertyEntities = RetrieveRelatedEntities(CustomApiResponsePropertyTableName);
 
 		Dictionary<string, List<CustomApiParameterModel>> requestParametersByApiId =
-			GroupParametersByApiId(requestParameterEntities, selectedCustomApiIds);
+			GroupParametersByApiId(requestParameterEntities, selectedCustomApiIds, false);
 		Dictionary<string, List<CustomApiParameterModel>> responsePropertiesByApiId =
-			GroupParametersByApiId(responsePropertyEntities, selectedCustomApiIds);
+			GroupParametersByApiId(responsePropertyEntities, selectedCustomApiIds, true);
 
 		List<CustomApiModel> result = selectedCustomApiEntities
 		   .Select(entity => ParseCustomApi(entity,
@@ -127,7 +127,8 @@ public class DataverseCustomApiConverter
 
 	private static Dictionary<string, List<CustomApiParameterModel>> GroupParametersByApiId(
 		IEnumerable<Entity> entities,
-		ISet<string> selectedApiIds)
+		ISet<string> selectedApiIds,
+		bool isResponse)
 	{
 		Dictionary<string, List<CustomApiParameterModel>> grouped = new(StringComparer.InvariantCultureIgnoreCase);
 
@@ -145,7 +146,7 @@ public class DataverseCustomApiConverter
 				continue;
 			}
 
-			CustomApiParameterModel parameter = ParseParameter(entity);
+			CustomApiParameterModel parameter = ParseParameter(entity, isResponse);
 
 			if (!grouped.TryGetValue(apiId, out List<CustomApiParameterModel> parameters))
 			{
@@ -198,6 +199,8 @@ public class DataverseCustomApiConverter
 			className += "Request";
 		}
 
+		string responseClassName = className[..^"Request".Length] + "Response";
+
 		return new CustomApiModel
 		{
 			Id = id,
@@ -211,6 +214,7 @@ public class DataverseCustomApiConverter
 			IsFunction = GetBool(entity, "isfunction"),
 			IsPrivate = GetBool(entity, "isprivate"),
 			RequestClassName = className,
+			ResponseClassName = responseClassName,
 			RequestParameters = requestParameters
 			   .OrderBy(p => p.Position)
 			   .ThenBy(p => p.PropertyName)
@@ -222,7 +226,7 @@ public class DataverseCustomApiConverter
 		};
 	}
 
-	private static CustomApiParameterModel ParseParameter(Entity entity)
+	internal static CustomApiParameterModel ParseParameter(Entity entity, bool isResponse)
 	{
 		string displayName = GetString(entity, "name");
 		string uniqueName = GetString(entity, "uniquename");
@@ -231,12 +235,21 @@ public class DataverseCustomApiConverter
 		string typeLabel = GetFormattedOrRawValue(entity, "type");
 		string logicalEntityName = GetString(entity, "logicalentityname");
 
-		NormalizeCustomApiParameterType(typeLabel,
-			logicalEntityName,
-			out string tsType,
-			out string cSharpTypeName,
-			out string webApiTypeName,
-			out string structuralProperty);
+		string tsType;
+		string cSharpTypeName;
+		string webApiTypeName;
+		string structuralProperty;
+
+		if (!isResponse ||
+			!TryNormalizeCustomApiResponseType(typeLabel, out tsType, out cSharpTypeName, out webApiTypeName, out structuralProperty))
+		{
+			NormalizeCustomApiParameterType(typeLabel,
+				logicalEntityName,
+				out tsType,
+				out cSharpTypeName,
+				out webApiTypeName,
+				out structuralProperty);
+		}
 
 		return new CustomApiParameterModel
 		{
@@ -314,6 +327,70 @@ public class DataverseCustomApiConverter
 	private static string GetString(Entity entity, string attributeName)
 	{
 		return entity.GetAttributeValue<string>(attributeName) ?? string.Empty;
+	}
+
+	/// <summary>
+	///  Maps the exact Dataverse response property types that the request mapping gets wrong (it matches by
+	///  substring, so <c>EntityCollection</c> and <c>EntityReference</c> end up as collection / entity reference).
+	///  Returns false for types the request mapping already handles.
+	/// </summary>
+	private static bool TryNormalizeCustomApiResponseType(
+		string typeLabel,
+		out string typeScriptType,
+		out string cSharpTypeName,
+		out string webApiTypeName,
+		out string structuralProperty)
+	{
+		structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
+
+		switch ((typeLabel ?? string.Empty).Trim().ToLowerInvariant())
+		{
+			case "entity":
+				typeScriptType = "any";
+				cSharpTypeName = "Entity";
+				webApiTypeName = "mscrm.crmbaseentity";
+				structuralProperty = "WebApiRequestStructuralProperty.EntityType";
+				return true;
+			case "entitycollection":
+				typeScriptType = "any[]";
+				cSharpTypeName = "EntityCollection";
+				webApiTypeName = "Collection(mscrm.crmbaseentity)";
+				structuralProperty = "WebApiRequestStructuralProperty.Collection";
+				return true;
+			case "entityreference":
+				typeScriptType = "any";
+				cSharpTypeName = "EntityReference";
+				webApiTypeName = "mscrm.crmbaseentity";
+				structuralProperty = "WebApiRequestStructuralProperty.EntityType";
+				return true;
+			case "stringarray":
+				typeScriptType = "string[]";
+				cSharpTypeName = "string[]";
+				webApiTypeName = "Collection(Edm.String)";
+				structuralProperty = "WebApiRequestStructuralProperty.Collection";
+				return true;
+			case "money":
+				typeScriptType = "number";
+				cSharpTypeName = "Money";
+				webApiTypeName = "Edm.Decimal";
+				return true;
+			case "picklist":
+			case "integer":
+				typeScriptType = "number";
+				cSharpTypeName = "int";
+				webApiTypeName = "Edm.Int32";
+				return true;
+			case "float":
+				typeScriptType = "number";
+				cSharpTypeName = "double";
+				webApiTypeName = "Edm.Double";
+				return true;
+			default:
+				typeScriptType = null;
+				cSharpTypeName = null;
+				webApiTypeName = null;
+				return false;
+		}
 	}
 
 	private static void NormalizeCustomApiParameterType(
