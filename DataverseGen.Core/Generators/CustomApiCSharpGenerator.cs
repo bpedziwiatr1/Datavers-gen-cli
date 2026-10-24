@@ -3,6 +3,7 @@ using System.Text;
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.Extensions;
 using DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
+using DataverseGen.Core.Reporting;
 using Scriban;
 
 namespace DataverseGen.Core.Generators;
@@ -21,12 +22,15 @@ public static class CustomApiCSharpGenerator
 		string namespaceName,
 		IEnumerable<CustomApiModel> customApis,
 		Template template,
-		Template responseTemplate = null)
+		Template responseTemplate = null,
+		IGenerationReporter reporter = null)
 	{
 		if (customApis == null)
 		{
 			return;
 		}
+
+		reporter ??= NullReporter.Instance;
 
 		string customApiDirectory = outPath;
 		Directory.CreateDirectory(customApiDirectory);
@@ -35,7 +39,7 @@ public static class CustomApiCSharpGenerator
 		{
 			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.cs");
 			File.WriteAllText(filePath, RenderRequestClass(namespaceName, customApi, template), Encoding.UTF8);
-			Console.WriteLine($@"Generated custom API: {customApi.UniqueName} -> {filePath}");
+			reporter.Log(LogLevel.Debug, $@"Generated custom API: {customApi.UniqueName} -> {filePath}");
 
 			if (customApi.ResponseProperties is not { Length: > 0 })
 			{
@@ -45,7 +49,7 @@ public static class CustomApiCSharpGenerator
 			responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(false);
 			string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.cs");
 			File.WriteAllText(responsePath, RenderResponseClass(namespaceName, customApi, responseTemplate), Encoding.UTF8);
-			Console.WriteLine($@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
+			reporter.Log(LogLevel.Debug, $@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
 		}
 	}
 

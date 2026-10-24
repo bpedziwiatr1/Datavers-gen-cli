@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using DataverseGen.Core.Reporting;
 using Scriban;
 
 namespace DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
@@ -7,7 +8,8 @@ public class MultipleFileTemplateTypescript : MultipleFileTemplateBase
 {
 	private string _relationshipsTemplateFilePath;
 
-	public MultipleFileTemplateTypescript(string templateName, string templateDir) : base(templateName, templateDir) { }
+	public MultipleFileTemplateTypescript(string templateName, string templateDir, IGenerationReporter reporter = null) :
+		base(templateName, templateDir, reporter) { }
 
 	internal Template RelationshipTemplate { get; private set; }
 

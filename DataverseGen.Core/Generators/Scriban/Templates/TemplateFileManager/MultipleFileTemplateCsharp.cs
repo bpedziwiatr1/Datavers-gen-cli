@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using DataverseGen.Core.Reporting;
 using Scriban;
 
 namespace DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
@@ -8,8 +9,8 @@ public class MultipleFileTemplateCsharp : MultipleFileTemplateBase
 	private string _fieldsTemplateFilePath;
 	private string _xrmServiceContextTemplateFilePath;
 
-	public MultipleFileTemplateCsharp(string templateName, string templateDirName) :
-		base(templateName, templateDirName) { }
+	public MultipleFileTemplateCsharp(string templateName, string templateDirName, IGenerationReporter reporter = null) :
+		base(templateName, templateDirName, reporter) { }
 
 	internal Template XrmContextTemplate { get; private set; }
 

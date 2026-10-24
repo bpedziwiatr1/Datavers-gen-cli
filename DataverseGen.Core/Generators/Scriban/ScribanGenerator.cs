@@ -6,6 +6,7 @@ using DataverseGen.Core.Generators;
 using DataverseGen.Core.Generators.Scriban.Templates;
 using DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
 using DataverseGen.Core.Metadata;
+using DataverseGen.Core.Reporting;
 using Scriban;
 using Scriban.Parsing;
 using Scriban.Runtime;
@@ -16,6 +17,7 @@ public partial class ScribanGenerator : BaseGenerator
 {
 	private readonly string _customApiOutPath;
 	private readonly bool _legacyEntityFileNames;
+	private readonly IGenerationReporter _reporter;
 	private string _fullOutputPath;
 
 	public ScribanGenerator(
@@ -25,7 +27,8 @@ public partial class ScribanGenerator : BaseGenerator
 		Context context,
 		TemplateEngineModel templateEngineModel,
 		string customApiOutPath = null,
-		bool legacyEntityFileNames = false)
+		bool legacyEntityFileNames = false,
+		IGenerationReporter reporter = null)
 		: base(templateName,
 			templateDirName,
 			outPath,
@@ -34,12 +37,14 @@ public partial class ScribanGenerator : BaseGenerator
 	{
 		_customApiOutPath = customApiOutPath;
 		_legacyEntityFileNames = legacyEntityFileNames;
+		_reporter = reporter ?? NullReporter.Instance;
 	}
 
 	public override void GenerateTemplate()
 	{
-		Console.WriteLine(@"Welcome to Scriban template generator");
 		Stopwatch stopper = Stopwatch.StartNew();
+		_reporter.StageStarted(Stage.Generate, Context.Entities?.Length ?? 0);
+		_reporter.Log(LogLevel.Debug, $@"Scriban template generator, template '{TemplateName}'");
 		_fullOutputPath = $"{Directory.GetCurrentDirectory()}\\{OutPath}\\";
 
 		if (!Directory.Exists(_fullOutputPath))
@@ -66,8 +71,8 @@ public partial class ScribanGenerator : BaseGenerator
 
 		GenerateCustomApis();
 
-		Console.WriteLine($@"Generating Scriban template '{TemplateName}' elapsed in: {stopper.Elapsed:g}");
 		stopper.Stop();
+		_reporter.StageCompleted(Stage.Generate, stopper.Elapsed);
 	}
 
 	private static string RemoveEmptyLines(string lines)
@@ -79,7 +84,7 @@ public partial class ScribanGenerator : BaseGenerator
 
 	private void MultiOutputGeneratorCSharp()
 	{
-		MultipleFileTemplateCsharp templates = new(TemplateName, TemplateDirName);
+		MultipleFileTemplateCsharp templates = new(TemplateName, TemplateDirName, _reporter);
 		templates.Init();
 		string dir = $"{Directory.GetCurrentDirectory()}\\{OutPath}\\";
 
@@ -103,7 +108,7 @@ public partial class ScribanGenerator : BaseGenerator
 
 	private void MultiOutputGeneratorTypeScript()
 	{
-		MultipleFileTemplateTypescript templates = new(TemplateName, TemplateDirName);
+		MultipleFileTemplateTypescript templates = new(TemplateName, TemplateDirName, _reporter);
 		templates.Init();
 
 		foreach (MappingEntity entity in Context.Entities)
@@ -225,9 +230,9 @@ public partial class ScribanGenerator : BaseGenerator
 			entityContent = $"{entityContent}\r\n";
 		}
 
-		File.WriteAllText($"{_fullOutputPath}/{entity.HybridName.ToLower()}.{outputFileSuffixWithExtension}",
-			entityContent,
-			Encoding.UTF8);
+		string entityPath = $"{_fullOutputPath}/{entity.HybridName.ToLower()}.{outputFileSuffixWithExtension}";
+		File.WriteAllText(entityPath, entityContent, Encoding.UTF8);
+		_reporter.Log(LogLevel.Debug, $@"Generated entity: {entity.LogicalName} -> {entityPath}");
 	}
 
 	private void GenerateCustomApis()
@@ -247,15 +252,17 @@ public partial class ScribanGenerator : BaseGenerator
 				CustomApiCSharpGenerator.WriteCustomApis(customApiPath,
 				Context.Namespace,
 				Context.CustomApis,
-				CustomApiTemplates.Load(TemplateName, TemplateDirName, false),
-				CustomApiTemplates.LoadResponse(TemplateName, TemplateDirName, false));
+				CustomApiTemplates.Load(TemplateName, TemplateDirName, false, _reporter),
+				CustomApiTemplates.LoadResponse(TemplateName, TemplateDirName, false, _reporter),
+				_reporter);
 				break;
 
 			case "ts":
 				CustomApiTypeScriptGenerator.WriteCustomApis(customApiPath,
 				Context.CustomApis,
-				CustomApiTemplates.Load(TemplateName, TemplateDirName, true),
-				CustomApiTemplates.LoadResponse(TemplateName, TemplateDirName, true));
+				CustomApiTemplates.Load(TemplateName, TemplateDirName, true, _reporter),
+				CustomApiTemplates.LoadResponse(TemplateName, TemplateDirName, true, _reporter),
+				_reporter);
 				break;
 		}
 	}

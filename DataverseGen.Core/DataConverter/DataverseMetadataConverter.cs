@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics;
 using CommunityToolkit.Diagnostics;
 using DataverseGen.Core.Metadata;
+using DataverseGen.Core.Reporting;
 using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
-using static DataverseGen.Core.ColorConsole;
 
 namespace DataverseGen.Core.DataConverter;
 
@@ -11,13 +11,15 @@ public class DataverseMetadataConverter
 {
 	private const string ActivityPartySchemaName = "activityparty";
 	private readonly DataverseConnector _dataverseConnector;
+	private readonly IGenerationReporter _reporter;
 	private readonly string[] _selectedEntities;
 	private readonly bool _throwOnEntityNotFound;
 
 	public DataverseMetadataConverter(
 		DataverseConnector dataverseConnector,
 		bool throwOnEntityNotFound,
-		string[] selectedEntities)
+		string[] selectedEntities,
+		IGenerationReporter reporter = null)
 	{
 		Guard.IsNotNull(selectedEntities);
 		Guard.IsNotNull(dataverseConnector);
@@ -25,13 +27,16 @@ public class DataverseMetadataConverter
 
 		_throwOnEntityNotFound = throwOnEntityNotFound;
 		_dataverseConnector = dataverseConnector;
+		_reporter = reporter ?? NullReporter.Instance;
 		WriteConverterSetting();
 	}
 
 	public MappingEntity[] GetMappedEntities()
 	{
-		Stopwatch stopper = Stopwatch.StartNew();
 		_dataverseConnector.Connect();
+
+		Stopwatch stopper = Stopwatch.StartNew();
+		_reporter.StageStarted(Stage.Entities, _selectedEntities.Length);
 
 		IEnumerable<EntityMetadata> selectedEntities =
 			SelectedEntitiesMetaData();
@@ -42,7 +47,7 @@ public class DataverseMetadataConverter
 			   .OrderBy(e => e.DisplayName)
 			   .ToList();
 
-		WriteInfo(@"Selected Entities Retrieved");
+		_reporter.Log(LogLevel.Debug, @"Selected Entities Retrieved");
 		ExcludeRelationshipsNotIncluded(mappedEntities);
 
 		foreach (MappingEntity ent in mappedEntities)
@@ -68,7 +73,7 @@ public class DataverseMetadataConverter
 
 		MappingEntity[] result = mappedEntities.ToArray();
 		stopper.Stop();
-		WriteInfo($@"Read data from Dataverse in: {stopper.Elapsed:g}");
+		_reporter.StageCompleted(Stage.Entities, stopper.Elapsed);
 
 		return result;
 	}
@@ -102,6 +107,8 @@ public class DataverseMetadataConverter
 
 	private EntityMetadata RetrieveEntityMetadata(string selectedEntity)
 	{
+		Stopwatch stopper = Stopwatch.StartNew();
+
 		try
 		{
 			RetrieveEntityRequest req = new()
@@ -114,13 +121,30 @@ public class DataverseMetadataConverter
 			RetrieveEntityResponse response =
 				(RetrieveEntityResponse)_dataverseConnector.OrganizationService.Execute(req);
 
-			WriteSuccess($@"Found entity: {selectedEntity}, metadata-id: {response.EntityMetadata.MetadataId}");
+			_reporter.Log(LogLevel.Debug,
+				$@"Found entity: {selectedEntity}, metadata-id: {response.EntityMetadata.MetadataId}");
+			_reporter.ItemCompleted(new ItemResult
+			{
+				Kind = ItemKind.Entity,
+				Name = selectedEntity,
+				Status = ItemStatus.Ok,
+				Detail = $"{response.EntityMetadata.Attributes?.Length ?? 0} fields",
+				Elapsed = stopper.Elapsed
+			});
 
 			return response.EntityMetadata;
 		}
 		catch (Exception ex)
 		{
-			WriteError($@"!@!@!@ entity not found: {selectedEntity} | {ex.Message}");
+			_reporter.Log(LogLevel.Debug, $@"Retrieving entity {selectedEntity} failed", ex);
+			_reporter.ItemCompleted(new ItemResult
+			{
+				Kind = ItemKind.Entity,
+				Name = selectedEntity,
+				Status = _throwOnEntityNotFound ? ItemStatus.Failed : ItemStatus.NotFound,
+				Detail = ex.Message,
+				Elapsed = stopper.Elapsed
+			});
 
 			if (_throwOnEntityNotFound)
 			{
@@ -140,7 +164,13 @@ public class DataverseMetadataConverter
 		{
 			if (retrievedEntitiesSchemaNames.Contains(selectedEntity))
 			{
-				WriteWarning($"duplicate entity {selectedEntity} ignoring");
+				_reporter.ItemCompleted(new ItemResult
+				{
+					Kind = ItemKind.Entity,
+					Name = selectedEntity,
+					Status = ItemStatus.Warning,
+					Detail = "duplicate, ignored"
+				});
 
 				continue;
 			}
@@ -187,7 +217,7 @@ public class DataverseMetadataConverter
 
 	private void WriteConverterSetting()
 	{
-		WriteInfo($@"Selected entities: {string.Join(", ", _selectedEntities)}");
-		WriteInfo($"Throw error if entity not found={_throwOnEntityNotFound}");
+		_reporter.Log(LogLevel.Debug, $@"Selected entities: {string.Join(", ", _selectedEntities)}");
+		_reporter.Log(LogLevel.Debug, $"Throw error if entity not found={_throwOnEntityNotFound}");
 	}
 }

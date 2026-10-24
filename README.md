@@ -310,6 +310,16 @@ Custom templates are still loaded from `<current directory>/<TemplateDirectoryNa
 
 The app waits for a key press before exiting only when it runs in its own console window (e.g. the exe was double-clicked). When started from an existing terminal it exits right away; `--no-pause` disables the pause in every case.
 
+### Verbose output and log file
+
+```powershell
+dataversegen -v                     # debug lines and full stack traces on the console
+dataversegen --log                  # full-detail log in ./dataversegen.log (overwritten per run)
+dataversegen --log build\gen.log    # log to a custom path
+```
+
+By default errors show a short message only. The log file always contains debug entries and full stack traces. Secrets in connection strings (`ClientSecret`, `Password`, `Secret`, `Key`, `Thumbprint`) are masked on the console and in the log.
+
 ## Development Notes
 
 - The solution targets `net10.0` (SDK pinned in `global.json`).

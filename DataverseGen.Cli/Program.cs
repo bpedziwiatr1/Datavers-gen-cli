@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using DataverseGen.Cli.Commands;
 using Spectre.Console.Cli;
-using static DataverseGen.Core.ColorConsole;
+using static DataverseGen.Cli.ConsoleOutput;
 
 namespace DataverseGen.Cli;
 
@@ -33,6 +33,8 @@ internal static class Program
 
 		try
 		{
+			Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 			if (ownConsoleWindow)
 			{
 				TrySetWindowSize(140, 30);

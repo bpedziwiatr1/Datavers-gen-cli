@@ -3,9 +3,9 @@ using System.Globalization;
 using System.Text;
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.Extensions;
+using DataverseGen.Core.Reporting;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
-using static DataverseGen.Core.ColorConsole;
 
 namespace DataverseGen.Core.DataConverter;
 
@@ -16,17 +16,20 @@ public class DataverseCustomApiConverter
 	private const string CustomApiResponsePropertyTableName = "customapiresponseproperty";
 
 	private readonly DataverseConnector _dataverseConnector;
+	private readonly IGenerationReporter _reporter;
 	private readonly string[] _selectedCustomApis;
 
 	public DataverseCustomApiConverter(
 		DataverseConnector dataverseConnector,
-		string[] selectedCustomApis)
+		string[] selectedCustomApis,
+		IGenerationReporter reporter = null)
 	{
 		_dataverseConnector = dataverseConnector;
 		_selectedCustomApis = selectedCustomApis ?? Array.Empty<string>();
+		_reporter = reporter ?? NullReporter.Instance;
 		if (HasSelection(_selectedCustomApis))
 		{
-			WriteInfo($@"Selected custom APIs: {string.Join(", ", _selectedCustomApis)}");
+			_reporter.Log(LogLevel.Debug, $@"Selected custom APIs: {string.Join(", ", _selectedCustomApis)}");
 		}
 	}
 
@@ -39,19 +42,22 @@ public class DataverseCustomApiConverter
 	{
 		if (!HasSelection(_selectedCustomApis))
 		{
-			WriteWarning(@"No custom APIs configured in 'CustomApis' - skipping custom API generation");
+			_reporter.Log(LogLevel.Warning, @"No custom APIs configured in 'CustomApis' - skipping custom API generation");
 
 			return Array.Empty<CustomApiModel>();
 		}
 
 		Stopwatch stopper = Stopwatch.StartNew();
-		WriteInfo(@"Loading custom APIs");
+		_reporter.StageStarted(Stage.CustomApis,
+			_selectedCustomApis.Count(name => !string.IsNullOrWhiteSpace(name)));
 
 		List<Entity> customApiEntities = RetrieveCustomApiEntities();
-		List<Entity> selectedCustomApiEntities = FilterCustomApiEntities(customApiEntities, _selectedCustomApis);
+		List<Entity> selectedCustomApiEntities =
+			FilterCustomApiEntities(customApiEntities, _selectedCustomApis, _reporter);
 		foreach (Entity selectedCustomApi in selectedCustomApiEntities)
 		{
-			WriteSuccess($@"Found custom API: {GetString(selectedCustomApi, "uniquename")}, id: {GetEntityId(selectedCustomApi)}");
+			_reporter.Log(LogLevel.Debug,
+				$@"Found custom API: {GetString(selectedCustomApi, "uniquename")}, id: {GetEntityId(selectedCustomApi)}");
 		}
 
 		HashSet<string> selectedCustomApiIds = new(
@@ -73,16 +79,30 @@ public class DataverseCustomApiConverter
 		   .OrderBy(api => api.RequestClassName)
 		   .ToList();
 
+		foreach (CustomApiModel api in result)
+		{
+			_reporter.ItemCompleted(new ItemResult
+			{
+				Kind = ItemKind.CustomApi,
+				Name = api.UniqueName,
+				Status = ItemStatus.Ok,
+				Detail = $"{api.RequestParameters.Length} parameters · {api.ResponseProperties.Length} response properties"
+			});
+		}
+
 		stopper.Stop();
-		WriteInfo($@"Loaded custom APIs in: {stopper.Elapsed:g}");
+		_reporter.StageCompleted(Stage.CustomApis, stopper.Elapsed);
 
 		return result.ToArray();
 	}
 
 	internal static List<Entity> FilterCustomApiEntities(
 		IReadOnlyCollection<Entity> customApiEntities,
-		IReadOnlyCollection<string> selectedCustomApis)
+		IReadOnlyCollection<string> selectedCustomApis,
+		IGenerationReporter reporter = null)
 	{
+		reporter ??= NullReporter.Instance;
+
 		if (!HasSelection(selectedCustomApis))
 		{
 			return new List<Entity>();
@@ -115,7 +135,12 @@ public class DataverseCustomApiConverter
 		{
 			if (!availableCustomApis.TryGetValue(selectedCustomApi, out Entity customApiEntity))
 			{
-				WriteWarning($@"Custom API not found: {selectedCustomApi}");
+				reporter.ItemCompleted(new ItemResult
+				{
+					Kind = ItemKind.CustomApi,
+					Name = selectedCustomApi,
+					Status = ItemStatus.NotFound
+				});
 				continue;
 			}
 
@@ -168,7 +193,7 @@ public class DataverseCustomApiConverter
 		};
 
 		EntityCollection response = _dataverseConnector.OrganizationService.RetrieveMultiple(query);
-		WriteInfo($@"Found custom APIs: {response.Entities.Count}");
+		_reporter.Log(LogLevel.Debug, $@"Found custom APIs: {response.Entities.Count}");
 		return response.Entities.ToList();
 	}
 
@@ -180,7 +205,7 @@ public class DataverseCustomApiConverter
 		};
 
 		EntityCollection response = _dataverseConnector.OrganizationService.RetrieveMultiple(query);
-		WriteInfo($@"Found {tableName}: {response.Entities.Count}");
+		_reporter.Log(LogLevel.Debug, $@"Found {tableName}: {response.Entities.Count}");
 		return response.Entities.ToList();
 	}
 

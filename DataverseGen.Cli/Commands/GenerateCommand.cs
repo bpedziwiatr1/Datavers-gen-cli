@@ -8,37 +8,78 @@ using DataverseGen.Core.Metadata;
 using Meziantou.Framework.Win32;
 using Newtonsoft.Json;
 using Spectre.Console.Cli;
-using static DataverseGen.Core.ColorConsole;
+using DataverseGen.Core.Reporting;
 
 namespace DataverseGen.Cli.Commands;
 
 internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 {
+	private const string DefaultLogPath = "dataversegen.log";
+
 	internal sealed class Settings : CommandSettings
 	{
 		[CommandOption("-c|--config <PATH>")]
 		[Description("Path to the config file. Defaults to dataversegen.config.json in the current directory.")]
 		[DefaultValue("dataversegen.config.json")]
 		public string ConfigPath { get; init; } = "dataversegen.config.json";
+
+		[CommandOption("-v|--verbose")]
+		[Description("Show debug output and full stack traces on the console.")]
+		public bool Verbose { get; init; }
+
+		[CommandOption("--log [PATH]")]
+		[Description("Write a full-detail log file (default: dataversegen.log in the current directory, overwritten per run).")]
+		public FlagValue<string?>? Log { get; init; }
 	}
 
 	public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken)
 	{
+		FileLogReporter? fileLog = null;
+
+		if (settings.Log is { IsSet: true })
+		{
+			string logPath = string.IsNullOrWhiteSpace(settings.Log.Value) ? DefaultLogPath : settings.Log.Value;
+
+			try
+			{
+				fileLog = new FileLogReporter(logPath);
+			}
+			catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
+			{
+				ConsoleOutput.WriteError($"Cannot write log file '{logPath}': {e.Message}");
+
+				return 1;
+			}
+		}
+
+		using (fileLog)
+		{
+			ConsoleReporter console = new(settings.Verbose);
+			IGenerationReporter reporter = fileLog is null ? console : new CompositeReporter(console, fileLog);
+
+			return Run(settings, reporter);
+		}
+	}
+
+	private static int Run(Settings settings, IGenerationReporter reporter)
+	{
 		try
 		{
+			reporter.Log(LogLevel.Debug, $"Config: {settings.ConfigPath}");
 			ConfigModel config = GetConfig(settings.ConfigPath);
 			ConfigValidation.Validate(config);
 			DataverseConnector dataverseConnector = new(config.ConnectionString,
-				config.EnableConnectionStringValidation);
+				config.EnableConnectionStringValidation,
+				reporter);
 
 			DataverseMetadataConverter dataConverter = new(dataverseConnector,
 				config.ThrowOnEntityNotFound,
-				config.Entities);
+				config.Entities,
+				reporter);
 
 			MappingEntity[] data = dataConverter.GetMappedEntities();
-			WriteLine(@"Finish Load data");
 
-			DataverseCustomApiConverter customApiConverter = new(dataverseConnector, config.CustomApis);
+			DataverseCustomApiConverter customApiConverter = new(dataverseConnector, config.CustomApis, reporter);
 			CustomApiModel[] customApis = customApiConverter.GetCustomApis();
 
 			Context generatorContext = new()
@@ -48,18 +89,16 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 				CustomApis = customApis
 			};
 
-			WriteLine(@"Start generator");
-
 			switch (config.TemplateEngine.Name)
 			{
 				case "scriban":
-					ScribanRun(config, generatorContext);
+					ScribanRun(config, generatorContext, reporter);
 
 					break;
 
 				default:
-					WriteLine($@"Unsupported generator {config.TemplateEngine}, run scriban");
-					ScribanRun(config, generatorContext);
+					reporter.Log(LogLevel.Warning, $@"Unsupported generator {config.TemplateEngine}, run scriban");
+					ScribanRun(config, generatorContext, reporter);
 
 					break;
 			}
@@ -68,9 +107,7 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 		}
 		catch (Exception e)
 		{
-			WriteError(e.ToString());
-			WriteError(@"#StackTrace:");
-			WriteError(e.StackTrace);
+			reporter.Log(LogLevel.Error, e.Message, e);
 
 			return 1;
 		}
@@ -124,7 +161,7 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 		return deserializedObject;
 	}
 
-	private static void ScribanRun(ConfigModel config, Context context)
+	private static void ScribanRun(ConfigModel config, Context context, IGenerationReporter reporter)
 	{
 		ScribanGenerator scribanGenerator = new(config.TemplateName,
 			config.TemplateDirectoryName,
@@ -132,7 +169,8 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 			context,
 			config.TemplateEngine,
 			config.CustomApiOutDirectory,
-			config.LegacyEntityFileNames);
+			config.LegacyEntityFileNames,
+			reporter);
 
 		scribanGenerator.GenerateTemplate();
 	}
