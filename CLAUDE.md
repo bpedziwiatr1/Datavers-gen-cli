@@ -28,7 +28,7 @@ The CLI ships both as a single-file exe (`dotnet publish` in `build.ps1`) and as
 
 ## Architecture
 
-Pipeline in `Program.Main`:
+Entry point `Program.Main` hosts a Spectre.Console.Cli `CommandApp` (`DataverseGen.Cli/Commands`: `generate` is the default, `init` writes a starter config, `templates` copies the built-in templates; scaffolding logic lives in `Core/Scaffolding`, with `--init`/`-i` and `--templates`/`-t` mapped to the commands in `NormalizeArguments`). The `generate` pipeline:
 
 1. **Config** — `dataversegen.config.json` is read from the current working directory into `ConfigModel` and checked by `ConfigValidation`. If `ConnectionString` is empty, it is read from / prompted into Windows Credential Manager under key `DataverseGen-{Namespace}`. See `DataverseGen.Cli/example-dataversegen.config.json` and README for fields.
 2. **Connect** — `DataverseConnector` wraps `ServiceClient`; when `EnableConnectionStringValidation` is on, `ConnectionStringValidatorFactory` picks a validator per `AuthType` (`ConnectionString/Validators/*`).

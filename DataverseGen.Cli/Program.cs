@@ -1,13 +1,7 @@
 ﻿using System.Reflection;
 using System.Runtime.InteropServices;
-using CommunityToolkit.Diagnostics;
-using DataverseGen.Core.Config;
-using DataverseGen.Core.DataConverter;
-using DataverseGen.Core.CustomApi;
-using DataverseGen.Core.Generators.Scriban;
-using DataverseGen.Core.Metadata;
-using Meziantou.Framework.Win32;
-using Newtonsoft.Json;
+using DataverseGen.Cli.Commands;
+using Spectre.Console.Cli;
 using static DataverseGen.Core.ColorConsole;
 
 namespace DataverseGen.Cli;
@@ -18,67 +12,17 @@ namespace DataverseGen.Cli;
 //*//
 internal static class Program
 {
-	private const string DataverseGenConfigJson = "dataversegen.config.json";
 	private const string NoPauseArgument = "--no-pause";
 
 	private const string Title = @"
-    ____        __       _    __                       ______         
-   / __ \____ _/ /_____ | |  / /__  _____________     / ____/__  ____ 
+    ____        __       _    __                       ______
+   / __ \____ _/ /_____ | |  / /__  _____________     / ____/__  ____
   / / / / __ `/ __/ __ `/ | / / _ \/ ___/ ___/ _ \   / / __/ _ \/ __ \
  / /_/ / /_/ / /_/ /_/ /| |/ /  __/ /  (__  )  __/  / /_/ /  __/ / / /
-/_____/\__,_/\__/\__,_/ |___/\___/_/  /____/\___/   \____/\___/_/ /_/                                                                       
+/_____/\__,_/\__/\__,_/ |___/\___/_/  /____/\___/   \____/\___/_/ /_/
 ";
 
-	private static ConfigModel GetConfig()
-	{
-		if (!File.Exists(DataverseGenConfigJson))
-		{
-			throw new FileNotFoundException("Config not found in current directory",
-				DataverseGenConfigJson);
-		}
-
-		string json = File.ReadAllText(DataverseGenConfigJson);
-		ConfigModel? deserializedObject = JsonConvert.DeserializeObject<ConfigModel>(json);
-		Guard.IsNotNull(deserializedObject);
-
-		return deserializedObject.ConnectionString is not (null or "")
-			? deserializedObject
-			: GetCredentials(deserializedObject);
-	}
-
-	private static ConfigModel GetCredentials(ConfigModel deserializedObject)
-	{
-		string credentialKey = $"DataverseGen-{deserializedObject.Namespace}";
-		Credential? creds = CredentialManager.ReadCredential(credentialKey);
-
-		if (creds is not null)
-		{
-			deserializedObject.ConnectionString = creds.Password;
-
-			return deserializedObject;
-		}
-
-		CredentialResult? newCreds = null;
-
-		while (newCreds is null)
-		{
-			newCreds = CredentialManager.PromptForCredentials(captionText:"New connection string prompt",
-				messageText:$"Provide valid connection string for {credentialKey}",
-				userName:"DO NOT USE",
-				saveCredential:CredentialSaveOption.Hidden);
-		}
-
-		CredentialManager.WriteCredential(credentialKey,
-			"UNUSED",
-			newCreds.Password,
-			CredentialPersistence.LocalMachine);
-
-		deserializedObject.ConnectionString = newCreds.Password;
-
-		return deserializedObject;
-	}
-
-	private static void Main(string[] args)
+	private static int Main(string[] args)
 	{
 		// Pause and resize only when started in its own console window (e.g. double-clicked exe),
 		// not when run from an existing terminal (e.g. as a dotnet tool).
@@ -97,51 +41,19 @@ internal static class Program
 			WriteLine(Title);
 			WriteVersion();
 
-			ConfigModel config = GetConfig();
-			ConfigValidation.Validate(config);
-			DataverseConnector dataverseConnector = new(config.ConnectionString,
-				config.EnableConnectionStringValidation);
-
-			DataverseMetadataConverter dataConverter = new(dataverseConnector,
-				config.ThrowOnEntityNotFound,
-				config.Entities);
-
-			MappingEntity[] data = dataConverter.GetMappedEntities();
-			WriteLine(@"Finish Load data");
-
-			DataverseCustomApiConverter customApiConverter = new(dataverseConnector, config.CustomApis);
-			CustomApiModel[] customApis = customApiConverter.GetCustomApis();
-
-			Context context = new()
+			CommandApp<GenerateCommand> app = new();
+			app.Configure(config =>
 			{
-				Namespace = config.Namespace,
-				Entities = data,
-				CustomApis = customApis
-			};
+				config.SetApplicationName("dataversegen");
+				config.AddCommand<GenerateCommand>("generate")
+					.WithDescription("Generate code from Dataverse metadata (default command).");
+				config.AddCommand<InitCommand>("init")
+					.WithDescription("Create an example dataversegen.config.json in the current directory.");
+				config.AddCommand<TemplatesCommand>("templates")
+					.WithDescription("Copy the built-in Scriban templates to the current directory.");
+			});
 
-			WriteLine(@"Start generator");
-
-			switch (config.TemplateEngine.Name)
-			{
-				case "scriban":
-					ScribanRun(config, context);
-
-					break;
-
-				default:
-					WriteLine($@"Unsupported generator {config.TemplateEngine}, run scriban");
-					ScribanRun(config, context);
-
-					break;
-			}
-		}
-		catch (Exception e)
-		{
-			WriteError(e.ToString());
-			WriteError(@"#StackTrace:");
-			WriteError(e.StackTrace);
-
-			throw;
+			return app.Run(NormalizeArguments(args));
 		}
 		finally
 		{
@@ -155,6 +67,28 @@ internal static class Program
 				WriteSuccess(@"Bye Bye, see you next time");
 			}
 		}
+	}
+
+	/// <summary>Drops <c>--no-pause</c> and maps a leading <c>--init|-i</c> / <c>--templates|-t</c> flag to its command.</summary>
+	private static string[] NormalizeArguments(string[] args)
+	{
+		string[] rest = args
+			.Where(arg => !arg.Equals(NoPauseArgument, StringComparison.OrdinalIgnoreCase))
+			.ToArray();
+
+		if (rest.Length == 0)
+		{
+			return rest;
+		}
+
+		string? command = rest[0].ToLowerInvariant() switch
+		{
+			"--init" or "-i" => "init",
+			"--templates" or "-t" => "templates",
+			_ => null
+		};
+
+		return command is null ? rest : [command, .. rest.Skip(1)];
 	}
 
 	[DllImport("kernel32.dll", SetLastError = true)]
@@ -198,18 +132,5 @@ internal static class Program
 		string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
 			?? assembly.GetName().Version?.ToString();
 		WriteLine($"Runtime Version: {version}");
-	}
-
-	private static void ScribanRun(ConfigModel config, Context context)
-	{
-		ScribanGenerator scribanGenerator = new(config.TemplateName,
-			config.TemplateDirectoryName,
-			string.IsNullOrWhiteSpace(config.EntitiesOutDirectory) ? config.OutDirectory : config.EntitiesOutDirectory,
-			context,
-			config.TemplateEngine,
-			config.CustomApiOutDirectory,
-			config.LegacyEntityFileNames);
-
-		scribanGenerator.GenerateTemplate();
 	}
 }

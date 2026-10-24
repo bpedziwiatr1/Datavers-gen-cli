@@ -36,6 +36,14 @@ Example:
 dotnet run --project DataverseGen.Cli
 ```
 
+## Commands
+
+```powershell
+dataversegen                      # generate (default); -c <path> selects another config
+dataversegen init                 # or --init / -i: create dataversegen.config.json (prompts; -y for defaults, -f to overwrite)
+dataversegen templates -t ts -n MyTs   # or --templates / -t: copy built-in Scriban templates to .TemplatesMyTs
+```
+
 ## Configuration Example
 
 ### C# output
