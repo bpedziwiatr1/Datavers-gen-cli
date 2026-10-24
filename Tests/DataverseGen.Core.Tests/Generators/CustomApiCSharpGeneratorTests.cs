@@ -37,7 +37,7 @@ public class CustomApiCSharpGeneratorTests
 					}
 				});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "processstatusrequest.cs");
+			string filePath = Path.Combine(tempRoot, "processstatusrequest.cs");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "namespace MyApp.CustomApis;");
@@ -96,7 +96,7 @@ public class CustomApiCSharpGeneratorTests
 					}
 				});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "processstatusrequest.cs");
+			string filePath = Path.Combine(tempRoot, "processstatusrequest.cs");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "public EntityReference Entity");
@@ -133,7 +133,7 @@ public class CustomApiCSharpGeneratorTests
 					}
 				});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "pingrequest.cs");
+			string filePath = Path.Combine(tempRoot, "pingrequest.cs");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "public PingRequest()");
@@ -180,7 +180,7 @@ public class CustomApiCSharpGeneratorTests
 					}
 				});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "keywordrequest.cs");
+			string filePath = Path.Combine(tempRoot, "keywordrequest.cs");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "public string Private");
@@ -205,7 +205,7 @@ public class CustomApiCSharpGeneratorTests
 		{
 			CustomApiCSharpGenerator.WriteCustomApis(tempRoot, "MyApp.CustomApis", (IEnumerable<CustomApiModel>)null!);
 
-			Assert.IsFalse(Directory.Exists(Path.Combine(tempRoot, "customapi")));
+			Assert.AreEqual(0, Directory.GetFileSystemEntries(tempRoot).Length);
 		}
 		finally
 		{

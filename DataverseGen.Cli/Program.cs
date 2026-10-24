@@ -204,9 +204,10 @@ internal static class Program
 	{
 		ScribanGenerator scribanGenerator = new(config.TemplateName,
 			config.TemplateDirectoryName,
-			config.OutDirectory,
+			string.IsNullOrWhiteSpace(config.EntitiesOutDirectory) ? config.OutDirectory : config.EntitiesOutDirectory,
 			context,
-			config.TemplateEngine);
+			config.TemplateEngine,
+			config.CustomApiOutDirectory);
 
 		scribanGenerator.GenerateTemplate();
 	}

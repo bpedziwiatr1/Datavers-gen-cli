@@ -1,6 +1,8 @@
 using System.Text;
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.Extensions;
+using DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
+using Scriban;
 
 namespace DataverseGen.Core.Generators;
 
@@ -8,107 +10,74 @@ public static class CustomApiCSharpGenerator
 {
 	public static void WriteCustomApis(string outPath, string namespaceName, IEnumerable<CustomApiModel> customApis)
 	{
+		WriteCustomApis(outPath, namespaceName, customApis, CustomApiTemplates.LoadBuiltIn(false));
+	}
+
+	public static void WriteCustomApis(
+		string outPath,
+		string namespaceName,
+		IEnumerable<CustomApiModel> customApis,
+		Template template)
+	{
 		if (customApis == null)
 		{
 			return;
 		}
 
-		string customApiDirectory = Path.Combine(outPath, "customapi");
+		string customApiDirectory = outPath;
 		Directory.CreateDirectory(customApiDirectory);
 
 		foreach (CustomApiModel customApi in customApis)
 		{
 			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.cs");
-			File.WriteAllText(filePath, RenderRequestClass(namespaceName, customApi), Encoding.UTF8);
+			File.WriteAllText(filePath, RenderRequestClass(namespaceName, customApi, template), Encoding.UTF8);
 		}
 	}
 
 	internal static string RenderRequestClass(string namespaceName, CustomApiModel customApi)
 	{
-		StringBuilder sb = new();
-		string className = customApi.RequestClassName;
-		List<CustomApiParameterModel> constructorParameters = customApi.RequestParameters.ToList();
+		return RenderRequestClass(namespaceName, customApi, CustomApiTemplates.LoadBuiltIn(false));
+	}
+
+	internal static string RenderRequestClass(string namespaceName, CustomApiModel customApi, Template template)
+	{
+		return CustomApiTemplates.Render(template, BuildView(namespaceName, customApi));
+	}
+
+	internal static CustomApiCSharpView BuildView(string namespaceName, CustomApiModel customApi)
+	{
+		List<CustomApiCSharpParameterView> constructorParameters = customApi.RequestParameters
+		   .Select(ToView)
+		   .ToList();
+		List<CustomApiCSharpParameterView> properties = [.. constructorParameters];
 		CustomApiParameterModel boundParameter = GetBoundParameter(customApi);
-
-		sb.AppendLine("using System;");
-		sb.AppendLine("using Microsoft.Xrm.Sdk;");
-		sb.AppendLine();
-		sb.AppendLine($"namespace {namespaceName};");
-		sb.AppendLine();
-		sb.AppendLine($"public sealed class {className} : OrganizationRequest");
-		sb.AppendLine("{");
-		sb.AppendLine($"\tpublic const string RequestNameValue = \"{EscapeString(customApi.OperationName)}\";");
-		sb.AppendLine();
-
-		if (constructorParameters.Count > 0 || boundParameter != null)
-		{
-			sb.Append($"\tpublic {className}(");
-			sb.Append(string.Join(", ", constructorParameters.Select(p => $"{GetCSharpType(p)} {GetParameterName(p)}")));
-
-			if (boundParameter != null)
-			{
-				if (constructorParameters.Count > 0)
-				{
-					sb.Append(", ");
-				}
-
-				sb.Append($"EntityReference {GetParameterName(boundParameter)}");
-			}
-
-			sb.AppendLine(")");
-			sb.AppendLine("\t{");
-
-			sb.AppendLine("\t\tRequestName = RequestNameValue;");
-
-			foreach (CustomApiParameterModel parameter in constructorParameters)
-			{
-				sb.AppendLine($"\t\t{GetPropertyName(parameter)} = {GetParameterName(parameter)};");
-			}
-
-			if (boundParameter != null)
-			{
-				sb.AppendLine($"\t\t{GetPropertyName(boundParameter)} = {GetParameterName(boundParameter)};");
-			}
-
-			sb.AppendLine("\t}");
-			sb.AppendLine();
-		}
-		else
-		{
-			sb.AppendLine($"\tpublic {className}()");
-			sb.AppendLine("\t{");
-			sb.AppendLine("\t\tRequestName = RequestNameValue;");
-			sb.AppendLine("\t}");
-			sb.AppendLine();
-		}
 
 		if (boundParameter != null)
 		{
-			sb.AppendLine($"\tpublic EntityReference {GetPropertyName(boundParameter)}");
-			sb.AppendLine("\t{");
-			sb.AppendLine($"\t\tget => Parameters.ContainsKey(\"{EscapeString(boundParameter.RequestPropertyName)}\")");
-			sb.AppendLine($"\t\t\t? (EntityReference)Parameters[\"{EscapeString(boundParameter.RequestPropertyName)}\"]");
-			sb.AppendLine("\t\t\t: default;");
-			sb.AppendLine($"\t\tset => Parameters[\"{EscapeString(boundParameter.RequestPropertyName)}\"] = value;");
-			sb.AppendLine("\t}");
-			sb.AppendLine();
+			CustomApiCSharpParameterView bound = ToView(boundParameter);
+			constructorParameters.Add(bound);
+			properties.Insert(0, bound);
 		}
 
-		foreach (CustomApiParameterModel parameter in constructorParameters)
+		return new CustomApiCSharpView
 		{
-			sb.AppendLine($"\tpublic {GetCSharpType(parameter)} {GetPropertyName(parameter)}");
-			sb.AppendLine("\t{");
-			sb.AppendLine($"\t\tget => Parameters.ContainsKey(\"{EscapeString(parameter.RequestPropertyName)}\")");
-			sb.AppendLine($"\t\t\t? ({GetCSharpType(parameter)})Parameters[\"{EscapeString(parameter.RequestPropertyName)}\"]");
-			sb.AppendLine("\t\t\t: default;");
-			sb.AppendLine($"\t\tset => Parameters[\"{EscapeString(parameter.RequestPropertyName)}\"] = value;");
-			sb.AppendLine("\t}");
-			sb.AppendLine();
-		}
+			Namespace = namespaceName,
+			ClassName = customApi.RequestClassName,
+			OperationName = EscapeString(customApi.OperationName),
+			ConstructorParameters = constructorParameters,
+			Properties = properties
+		};
+	}
 
-		sb.AppendLine("}");
-
-		return sb.ToString();
+	private static CustomApiCSharpParameterView ToView(CustomApiParameterModel parameter)
+	{
+		return new CustomApiCSharpParameterView
+		{
+			Type = GetCSharpType(parameter),
+			PropertyName = GetPropertyName(parameter),
+			ParameterName = GetParameterName(parameter),
+			RequestPropertyName = EscapeString(parameter.RequestPropertyName)
+		};
 	}
 
 	private static CustomApiParameterModel GetBoundParameter(CustomApiModel customApi)

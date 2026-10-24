@@ -83,6 +83,26 @@ namespace DataverseGen.Core.Generators.Scriban.Templates {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
+        internal static byte[] Main_customapi {
+            get {
+                object obj = ResourceManager.GetObject("Main_customapi", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] Main_ts_customapi {
+            get {
+                object obj = ResourceManager.GetObject("Main_ts_customapi", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
         internal static byte[] Main_entity {
             get {
                 object obj = ResourceManager.GetObject("Main_entity", resourceCulture);

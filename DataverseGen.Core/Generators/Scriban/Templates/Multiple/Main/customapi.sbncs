@@ -1,0 +1,24 @@
+using System;
+using Microsoft.Xrm.Sdk;
+
+namespace {{namespace}};
+
+public sealed class {{class_name}} : OrganizationRequest
+{
+	public const string RequestNameValue = "{{operation_name}}";
+
+	public {{class_name}}({{for p in constructor_parameters}}{{p.type}} {{p.parameter_name}}{{if !for.last}}, {{end}}{{end}})
+	{
+		RequestName = RequestNameValue;{{for p in constructor_parameters}}
+		{{p.property_name}} = {{p.parameter_name}};{{end}}
+	}
+{{for p in properties}}
+	public {{p.type}} {{p.property_name}}
+	{
+		get => Parameters.ContainsKey("{{p.request_property_name}}")
+			? ({{p.type}})Parameters["{{p.request_property_name}}"]
+			: default;
+		set => Parameters["{{p.request_property_name}}"] = value;
+	}
+{{end}}
+}

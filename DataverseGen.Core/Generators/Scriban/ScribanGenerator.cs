@@ -14,6 +14,7 @@ namespace DataverseGen.Core.Generators.Scriban;
 
 public partial class ScribanGenerator : BaseGenerator
 {
+	private readonly string _customApiOutPath;
 	private string _fullOutputPath;
 
 	public ScribanGenerator(
@@ -21,12 +22,16 @@ public partial class ScribanGenerator : BaseGenerator
 		string templateDirName,
 		string outPath,
 		Context context,
-		TemplateEngineModel templateEngineModel)
+		TemplateEngineModel templateEngineModel,
+		string customApiOutPath = null)
 		: base(templateName,
 			templateDirName,
 			outPath,
 			context,
-			templateEngineModel) { }
+			templateEngineModel)
+	{
+		_customApiOutPath = customApiOutPath;
+	}
 
 	public override void GenerateTemplate()
 	{
@@ -229,14 +234,23 @@ public partial class ScribanGenerator : BaseGenerator
 			return;
 		}
 
+		string customApiPath = string.IsNullOrWhiteSpace(_customApiOutPath)
+			? $"{_fullOutputPath}customapi"
+			: $"{Directory.GetCurrentDirectory()}\\{_customApiOutPath}\\";
+
 		switch (TemplateEngineModel.Type.ToLowerInvariant())
 		{
 			case "c#":
-				CustomApiCSharpGenerator.WriteCustomApis(_fullOutputPath, Context.Namespace, Context.CustomApis);
+				CustomApiCSharpGenerator.WriteCustomApis(customApiPath,
+				Context.Namespace,
+				Context.CustomApis,
+				CustomApiTemplates.Load(TemplateName, TemplateDirName, false));
 				break;
 
 			case "ts":
-				CustomApiTypeScriptGenerator.WriteCustomApis(_fullOutputPath, Context.CustomApis);
+				CustomApiTypeScriptGenerator.WriteCustomApis(customApiPath,
+				Context.CustomApis,
+				CustomApiTemplates.Load(TemplateName, TemplateDirName, true));
 				break;
 		}
 	}

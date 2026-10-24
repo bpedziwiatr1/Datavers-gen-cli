@@ -24,6 +24,14 @@ public class ConfigModel
 	public string OutDirectory { get; set; }
 	[JsonProperty]
 
+	/// <summary>Output folder for entities; falls back to <see cref="OutDirectory"/>.</summary>
+	public string EntitiesOutDirectory { get; set; }
+	[JsonProperty]
+
+	/// <summary>Output folder for custom APIs; falls back to a <c>customapi</c> folder in the entities folder.</summary>
+	public string CustomApiOutDirectory { get; set; }
+	[JsonProperty]
+
 	public TemplateEngineModel TemplateEngine { get; set; }
 	[JsonProperty]
 

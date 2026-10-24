@@ -135,6 +135,16 @@
             PublicKeyToken=b77a5c561934e089
         </value>
     </data>
+    <data name="Main_customapi" type="System.Resources.ResXFileRef, System.Windows.Forms">
+        <value>Multiple\Main\customapi.sbncs;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </data>
+    <data name="Main_ts_customapi" type="System.Resources.ResXFileRef, System.Windows.Forms">
+        <value>Multiple\TS-Main\customapi.sbncs;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </data>
     <data name="Main_entity" type="System.Resources.ResXFileRef, System.Windows.Forms">
         <value>Multiple\Main\entity.sbncs;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral,
             PublicKeyToken=b77a5c561934e089

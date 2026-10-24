@@ -8,8 +8,8 @@ Dataverse early-bound generator for Power Platform, built as a .NET 10 CLI on to
 - If `ConnectionString` is missing, the app falls back to Windows Credential Manager and prompts for one.
 - The Scriban generator supports both `C#` and `ts` output types.
 - Generation can run in single-file or multi-file mode.
-- TypeScript generation also emits custom API request wrappers under `customapi/`.
-- C# generation also emits custom API request wrappers under `customapi/`.
+- TypeScript generation also emits custom API request wrappers in `CustomApiOutDirectory` (default `customapi/` next to the entities).
+- C# generation also emits custom API request wrappers in `CustomApiOutDirectory` (default `customapi/` next to the entities).
 - Built-in templates are available through `TemplateName = "Main"`, and project templates can be copied under a `Templates` folder.
 - Release builds are packaged into self-contained and framework-dependent ZIP archives by `build.ps1`.
 
@@ -101,7 +101,7 @@ No extra flag is required in `dataversegen.config.json` and there is no separate
 The generator reads the Dataverse metadata and writes custom API wrappers into:
 
 ```text
-<OutDirectory>/customapi/
+<CustomApiOutDirectory>   (default: <entities folder>/customapi/)
 ```
 
 Example TypeScript config that enables the feature:
@@ -159,7 +159,9 @@ The names are matched against the Dataverse `uniquename` field, case-insensitive
 - `CustomApis` - Custom API unique names to generate. If omitted or empty, all custom APIs are generated for the selected output type.
 - `ConnectionString` - Dataverse connection string. If omitted, the CLI asks for it and stores it in Windows Credential Manager.
 - `Namespace` - Namespace used in generated code.
-- `OutDirectory` - Output folder for generated files.
+- `OutDirectory` - Output folder for generated files. Used for entities when `EntitiesOutDirectory` is not set.
+- `EntitiesOutDirectory` - Optional output folder for entity files; overrides `OutDirectory`.
+- `CustomApiOutDirectory` - Optional output folder for custom API request wrappers. Default: `customapi` inside the entities folder.
 - `TemplateName` - Template set to use. `Main` selects the built-in templates.
 - `TemplateDirectoryName` - Folder name that contains project templates.
 - `EnableConnectionStringValidation` - Enables connection string validation. Default: `false`.
@@ -200,6 +202,20 @@ Then reference the template folder name in the config:
   "TemplateDirectoryName": "Templates"
 }
 ```
+
+### Custom API template
+
+The custom API request wrappers written to `CustomApiOutDirectory` (default `<entities folder>/customapi/`) are rendered from one template per output type. A project template set may contain an optional `customapi.sbncs`; when it is missing, the built-in one is used. The `Multiple/Main` and `Multiple/TS-Main` example templates include a copy to start from.
+
+Variables available in `customapi.sbncs` (Scriban snake_case names):
+
+- `class_name`, `operation_name` (already escaped for a string literal); `namespace` (C# only); `operation_type`, `bound_parameter_name` (TypeScript only).
+- `properties` - request properties, the bound entity (if any) first.
+- `constructor_parameters` - constructor arguments, the bound entity (if any) last.
+- C# items: `type`, `property_name`, `parameter_name`, `request_property_name`.
+- TypeScript items: `is_bound`, `request_property_name`, `constructor_parameter_name`, `type_script_type`, `web_api_type_name`, `web_api_structural_property`.
+
+The output is not post-processed (blank lines are kept), so the template controls the exact layout.
 
 ## Release Build
 

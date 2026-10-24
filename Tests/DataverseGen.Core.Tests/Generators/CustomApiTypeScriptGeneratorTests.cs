@@ -35,7 +35,7 @@ public class CustomApiTypeScriptGeneratorTests
 				}
 			});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "processstatusrequest.ts");
+			string filePath = Path.Combine(tempRoot, "processstatusrequest.ts");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "export default class ProcessStatusRequest implements IWebApiRequest");
@@ -66,7 +66,7 @@ public class CustomApiTypeScriptGeneratorTests
 		{
 			CustomApiTypeScriptGenerator.WriteCustomApis(tempRoot, (IEnumerable<CustomApiModel>)null!);
 
-			Assert.IsFalse(Directory.Exists(Path.Combine(tempRoot, "customapi")));
+			Assert.AreEqual(0, Directory.GetFileSystemEntries(tempRoot).Length);
 		}
 		finally
 		{
@@ -95,7 +95,7 @@ public class CustomApiTypeScriptGeneratorTests
 				}
 			});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "getstatusrequest.ts");
+			string filePath = Path.Combine(tempRoot, "getstatusrequest.ts");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "constructor()");
@@ -129,7 +129,7 @@ public class CustomApiTypeScriptGeneratorTests
 				}
 			});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "boundrequest.ts");
+			string filePath = Path.Combine(tempRoot, "boundrequest.ts");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "private entity: any;");

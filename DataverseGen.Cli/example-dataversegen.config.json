@@ -3,7 +3,9 @@
   "CustomApis": [ "newupdatestatus" ],
   "ConnectionString": "AuthType=ClientSecret;Url={url};ClientId={ClientId};ClientSecret={ClientSecret}",
   "Namespace": "sad.CRM.Test",
-  "OutDirectory": "out-crm",
+  "OutDirectory": "out-crm", // fallback when EntitiesOutDirectory is not set
+  "EntitiesOutDirectory": "out-crm/entities", // optional
+  "CustomApiOutDirectory": "out-crm/customapi", // optional, default <entities dir>/customapi
   "TemplateName": "Main",
   "EnableConnectionStringValidation": true, // optional
   "ThrowOnEntityNotFound": true, // optional
