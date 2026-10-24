@@ -45,6 +45,10 @@ public class ConfigModel
 	[JsonProperty]
 	[DefaultValue(true)]
 	public bool EnableConnectionStringValidation { get; set; }
+	[JsonProperty]
+
+	/// <summary>Multi-file output only: write entity files as <c>&lt;name&gt;.cs</c> / <c>&lt;name&gt;.attributes.ts</c> instead of <c>&lt;name&gt;.entity.cs|ts</c>.</summary>
+	public bool LegacyEntityFileNames { get; set; }
 }
 
 [Serializable]

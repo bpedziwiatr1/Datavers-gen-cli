@@ -165,6 +165,7 @@ The names are matched against the Dataverse `uniquename` field, case-insensitive
 - `OutDirectory` - Output folder for generated files. Used for entities when `EntitiesOutDirectory` is not set.
 - `EntitiesOutDirectory` - Optional output folder for entity files; overrides `OutDirectory`.
 - `CustomApiOutDirectory` - Optional output folder for custom API request wrappers. Default: `customapi` inside the entities folder.
+- `LegacyEntityFileNames` - Optional, default `false`. Multi-file output writes entity files as `<name>.entity.cs` / `<name>.entity.ts`; set to `true` to get the previous `<name>.cs` / `<name>.attributes.ts`.
 - `TemplateName` - Template set to use. `Main` selects the built-in templates.
 - `TemplateDirectoryName` - Folder name that contains project templates.
 - `EnableConnectionStringValidation` - Enables connection string validation. Default: `false`.

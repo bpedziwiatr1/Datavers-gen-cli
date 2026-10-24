@@ -43,6 +43,38 @@ public class ScribanGeneratorTests
 		AssertMatchesBaseline("ts-multiple", "ts", false);
 	}
 
+	[TestMethod]
+	public void GenerateTemplate_CSharpMultiple_UsesEntitySuffixByDefault()
+	{
+		CollectionAssert.AreEquivalent(
+			new[] { "new_project.entity.cs", "new_project.Fields.cs", "new_project.Enums.cs", "XrmServiceContext.cs" },
+			Generate("C#", false).Keys.ToArray());
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_CSharpMultiple_LegacyFileNames_KeepsPlainEntityFile()
+	{
+		CollectionAssert.AreEquivalent(
+			new[] { "new_project.cs", "new_project.Fields.cs", "new_project.Enums.cs", "XrmServiceContext.cs" },
+			Generate("C#", false, true).Keys.ToArray());
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_TypeScriptMultiple_UsesEntitySuffixByDefault()
+	{
+		CollectionAssert.AreEquivalent(
+			new[] { "new_project.entity.ts", "new_project.enums.ts", "new_project.relationships.ts" },
+			Generate("ts", false).Keys.ToArray());
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_TypeScriptMultiple_LegacyFileNames_KeepsAttributesFile()
+	{
+		CollectionAssert.AreEquivalent(
+			new[] { "new_project.attributes.ts", "new_project.enums.ts", "new_project.relationships.ts" },
+			Generate("ts", false, true).Keys.ToArray());
+	}
+
 	private static void AssertMatchesBaseline(string scenario, string type, bool isSingleOutput)
 	{
 		Dictionary<string, string> actual = Generate(type, isSingleOutput);
@@ -82,7 +114,7 @@ public class ScribanGeneratorTests
 		}
 	}
 
-	private static Dictionary<string, string> Generate(string type, bool isSingleOutput)
+	private static Dictionary<string, string> Generate(string type, bool isSingleOutput, bool legacyEntityFileNames = false)
 	{
 		string originalDirectory = Directory.GetCurrentDirectory();
 		string tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -110,7 +142,9 @@ public class ScribanGeneratorTests
 					Name = "scriban",
 					Type = type,
 					IsSingleOutput = isSingleOutput
-				});
+				},
+				null,
+				legacyEntityFileNames);
 
 			generator.GenerateTemplate();
 

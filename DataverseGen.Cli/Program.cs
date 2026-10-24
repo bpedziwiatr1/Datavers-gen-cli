@@ -207,7 +207,8 @@ internal static class Program
 			string.IsNullOrWhiteSpace(config.EntitiesOutDirectory) ? config.OutDirectory : config.EntitiesOutDirectory,
 			context,
 			config.TemplateEngine,
-			config.CustomApiOutDirectory);
+			config.CustomApiOutDirectory,
+			config.LegacyEntityFileNames);
 
 		scribanGenerator.GenerateTemplate();
 	}

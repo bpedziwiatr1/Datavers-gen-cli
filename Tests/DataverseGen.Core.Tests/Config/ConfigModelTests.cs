@@ -12,6 +12,7 @@ public class ConfigModelTests
 
 		Assert.IsFalse(model.ThrowOnEntityNotFound);
 		Assert.IsFalse(model.EnableConnectionStringValidation);
+		Assert.IsFalse(model.LegacyEntityFileNames);
 	}
 
 	[TestMethod]
