@@ -7,45 +7,52 @@ public sealed class ProcessStatusRequest : OrganizationRequest
 {
 	public const string RequestNameValue = "new\"update\\status";
 
-	public ProcessStatusRequest(bool flag, int count, string[] names, EntityReference entity)
+	public static class ParameterNames
+	{
+		public const string Entity = "entity";
+		public const string Flag = "flag";
+		public const string Count = "count";
+		public const string Names = "new_names";
+	}
+
+	public ProcessStatusRequest(bool flag, string[] names, EntityReference entity, int? count = null)
 	{
 		RequestName = RequestNameValue;
 		Flag = flag;
-		Count = count;
 		Names = names;
 		Entity = entity;
+		if (count != null)
+		{
+			Count = count;
+		}
 	}
 
+	/// <summary>Required.</summary>
 	public EntityReference Entity
 	{
-		get => Parameters.ContainsKey("entity")
-			? (EntityReference)Parameters["entity"]
-			: default;
-		set => Parameters["entity"] = value;
+		get => Parameters.TryGetValue(ParameterNames.Entity, out object value) ? (EntityReference)value : default;
+		set => Parameters[ParameterNames.Entity] = value;
 	}
 
+	/// <summary>Required.</summary>
 	public bool Flag
 	{
-		get => Parameters.ContainsKey("flag")
-			? (bool)Parameters["flag"]
-			: default;
-		set => Parameters["flag"] = value;
+		get => Parameters.TryGetValue(ParameterNames.Flag, out object value) ? (bool)value : default;
+		set => Parameters[ParameterNames.Flag] = value;
 	}
 
-	public int Count
+	/// <summary>Optional. Number of items &amp; &lt;more&gt;</summary>
+	public int? Count
 	{
-		get => Parameters.ContainsKey("count")
-			? (int)Parameters["count"]
-			: default;
-		set => Parameters["count"] = value;
+		get => Parameters.TryGetValue(ParameterNames.Count, out object value) ? (int?)value : default;
+		set => Parameters[ParameterNames.Count] = value;
 	}
 
+	/// <summary>Required.</summary>
 	public string[] Names
 	{
-		get => Parameters.ContainsKey("new_names")
-			? (string[])Parameters["new_names"]
-			: default;
-		set => Parameters["new_names"] = value;
+		get => Parameters.TryGetValue(ParameterNames.Names, out object value) ? (string[])value : default;
+		set => Parameters[ParameterNames.Names] = value;
 	}
 
 }

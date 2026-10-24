@@ -1,3 +1,4 @@
+using System.Security;
 using System.Text;
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.Extensions;
@@ -8,6 +9,8 @@ namespace DataverseGen.Core.Generators;
 
 public static class CustomApiCSharpGenerator
 {
+	private static readonly HashSet<string> ValueTypeNames = ["bool", "int", "long", "decimal", "double", "float", "DateTime", "Guid"];
+
 	public static void WriteCustomApis(string outPath, string namespaceName, IEnumerable<CustomApiModel> customApis)
 	{
 		WriteCustomApis(outPath, namespaceName, customApis, CustomApiTemplates.LoadBuiltIn(false));
@@ -47,10 +50,13 @@ public static class CustomApiCSharpGenerator
 
 	internal static CustomApiCSharpView BuildView(string namespaceName, CustomApiModel customApi)
 	{
-		List<CustomApiCSharpParameterView> constructorParameters = customApi.RequestParameters
+		List<CustomApiCSharpParameterView> requestParameters = customApi.RequestParameters
 		   .Select(ToView)
 		   .ToList();
-		List<CustomApiCSharpParameterView> properties = [.. constructorParameters];
+		List<CustomApiCSharpParameterView> properties = [.. requestParameters];
+		List<CustomApiCSharpParameterView> constructorParameters = requestParameters
+		   .Where(p => !p.IsOptional)
+		   .ToList();
 		CustomApiParameterModel boundParameter = GetBoundParameter(customApi);
 
 		if (boundParameter != null)
@@ -59,6 +65,8 @@ public static class CustomApiCSharpGenerator
 			constructorParameters.Add(bound);
 			properties.Insert(0, bound);
 		}
+
+		constructorParameters.AddRange(requestParameters.Where(p => p.IsOptional));
 
 		return new CustomApiCSharpView
 		{
@@ -75,10 +83,23 @@ public static class CustomApiCSharpGenerator
 		return new CustomApiCSharpParameterView
 		{
 			Type = GetCSharpType(parameter),
+			IsOptional = parameter.IsOptional,
+			Summary = GetSummary(parameter),
 			PropertyName = GetPropertyName(parameter),
 			ParameterName = GetParameterName(parameter),
 			RequestPropertyName = EscapeString(parameter.RequestPropertyName)
 		};
+	}
+
+	private static string GetSummary(CustomApiParameterModel parameter)
+	{
+		string status = parameter.IsOptional ? "Optional." : "Required.";
+		string description = string.Join(" ",
+			(parameter.Description ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
+
+		return description.Length == 0
+			? status
+			: $"{status} {SecurityElement.Escape(description)}";
 	}
 
 	private static CustomApiParameterModel GetBoundParameter(CustomApiModel customApi)
@@ -136,9 +157,13 @@ public static class CustomApiCSharpGenerator
 
 	private static string GetCSharpType(CustomApiParameterModel parameter)
 	{
-		return string.IsNullOrWhiteSpace(parameter.CSharpTypeName)
+		string typeName = string.IsNullOrWhiteSpace(parameter.CSharpTypeName)
 			? "string"
 			: parameter.CSharpTypeName;
+
+		return parameter.IsOptional && ValueTypeNames.Contains(typeName)
+			? $"{typeName}?"
+			: typeName;
 	}
 
 	private static string EscapeString(string value)

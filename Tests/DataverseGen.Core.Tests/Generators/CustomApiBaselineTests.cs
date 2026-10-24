@@ -101,7 +101,7 @@ public class CustomApiBaselineTests
 				RequestParameters =
 				[
 					Parameter("Flag", "flag", "bool", "boolean", "Edm.Boolean", "WebApiRequestStructuralProperty.PrimitiveType"),
-					Parameter("Count", "count", "int", "number", "Edm.Int32", "WebApiRequestStructuralProperty.PrimitiveType"),
+					Parameter("Count", "count", "int", "number", "Edm.Int32", "WebApiRequestStructuralProperty.PrimitiveType", isOptional: true, description: "Number of items & <more>"),
 					Parameter("Names", "new_names", "string[]", "string[]", "Collection(Edm.String)", "WebApiRequestStructuralProperty.Collection")
 				]
 			},
@@ -123,7 +123,9 @@ public class CustomApiBaselineTests
 		string csharpType,
 		string typeScriptType,
 		string webApiTypeName,
-		string structuralProperty)
+		string structuralProperty,
+		bool isOptional = false,
+		string description = "")
 	{
 		return new CustomApiParameterModel
 		{
@@ -135,7 +137,9 @@ public class CustomApiBaselineTests
 			CSharpTypeName = csharpType,
 			TypeScriptType = typeScriptType,
 			WebApiTypeName = webApiTypeName,
-			WebApiStructuralProperty = structuralProperty
+			WebApiStructuralProperty = structuralProperty,
+			IsOptional = isOptional,
+			Description = description
 		};
 	}
 }
