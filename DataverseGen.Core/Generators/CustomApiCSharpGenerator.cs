@@ -20,7 +20,8 @@ public static class CustomApiCSharpGenerator
 		string outPath,
 		string namespaceName,
 		IEnumerable<CustomApiModel> customApis,
-		Template template)
+		Template template,
+		Template responseTemplate = null)
 	{
 		if (customApis == null)
 		{
@@ -35,7 +36,54 @@ public static class CustomApiCSharpGenerator
 			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.cs");
 			File.WriteAllText(filePath, RenderRequestClass(namespaceName, customApi, template), Encoding.UTF8);
 			Console.WriteLine($@"Generated custom API: {customApi.UniqueName} -> {filePath}");
+
+			if (customApi.ResponseProperties is not { Length: > 0 })
+			{
+				continue;
+			}
+
+			responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(false);
+			string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.cs");
+			File.WriteAllText(responsePath, RenderResponseClass(namespaceName, customApi, responseTemplate), Encoding.UTF8);
+			Console.WriteLine($@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
 		}
+	}
+
+	internal static string RenderResponseClass(string namespaceName, CustomApiModel customApi)
+	{
+		return RenderResponseClass(namespaceName, customApi, CustomApiTemplates.LoadBuiltInResponse(false));
+	}
+
+	internal static string RenderResponseClass(string namespaceName, CustomApiModel customApi, Template template)
+	{
+		return CustomApiTemplates.Render(template, BuildResponseView(namespaceName, customApi));
+	}
+
+	internal static CustomApiCSharpResponseView BuildResponseView(string namespaceName, CustomApiModel customApi)
+	{
+		return new CustomApiCSharpResponseView
+		{
+			Namespace = namespaceName,
+			ClassName = customApi.ResponseClassName,
+			Properties = customApi.ResponseProperties
+			   .Select(p =>
+				{
+					CustomApiCSharpParameterView view = ToView(p);
+					view.Summary = GetResponseSummary(p);
+					return view;
+				})
+			   .ToList()
+		};
+	}
+
+	private static string GetResponseSummary(CustomApiParameterModel parameter)
+	{
+		string description = string.Join(" ",
+			(parameter.Description ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
+
+		return description.Length == 0
+			? SecurityElement.Escape(parameter.DisplayName ?? parameter.UniqueName ?? string.Empty)
+			: SecurityElement.Escape(description);
 	}
 
 	internal static string RenderRequestClass(string namespaceName, CustomApiModel customApi)

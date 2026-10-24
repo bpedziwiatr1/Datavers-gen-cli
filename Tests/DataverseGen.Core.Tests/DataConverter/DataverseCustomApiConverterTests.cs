@@ -1,3 +1,4 @@
+using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.DataConverter;
 using Microsoft.Xrm.Sdk;
 using System.Reflection;
@@ -127,6 +128,41 @@ public class DataverseCustomApiConverterTests
 		Assert.AreEqual(expectedCSharpTypeName, parameters[3]);
 		Assert.AreEqual(expectedWebApiTypeName, parameters[4]);
 		Assert.AreEqual(expectedStructuralProperty, parameters[5]);
+	}
+
+	[TestMethod]
+	[DataRow("Entity", "Entity", "any")]
+	[DataRow("EntityCollection", "EntityCollection", "any[]")]
+	[DataRow("EntityReference", "EntityReference", "any")]
+	[DataRow("StringArray", "string[]", "string[]")]
+	[DataRow("Money", "Money", "number")]
+	[DataRow("Picklist", "int", "number")]
+	[DataRow("Float", "double", "number")]
+	[DataRow("String", "string", "string")]
+	[DataRow("Boolean", "bool", "boolean")]
+	public void ParseParameter_ResponseUsesExactTypes(string type, string expectedCSharp, string expectedTypeScript)
+	{
+		Entity entity = new("customapiresponseproperty") { Id = Guid.NewGuid() };
+		entity["uniquename"] = "result";
+		entity["name"] = "Result";
+		entity["type"] = type;
+
+		CustomApiParameterModel parameter = DataverseCustomApiConverter.ParseParameter(entity, true);
+
+		Assert.AreEqual(expectedCSharp, parameter.CSharpTypeName);
+		Assert.AreEqual(expectedTypeScript, parameter.TypeScriptType);
+	}
+
+	[TestMethod]
+	public void ParseParameter_RequestKeepsSubstringTypeMapping()
+	{
+		Entity entity = new("customapirequestparameter") { Id = Guid.NewGuid() };
+		entity["uniquename"] = "items";
+		entity["type"] = "EntityCollection";
+
+		CustomApiParameterModel parameter = DataverseCustomApiConverter.ParseParameter(entity, false);
+
+		Assert.AreEqual("string[]", parameter.CSharpTypeName);
 	}
 
 	private static Entity CreateCustomApiEntity(string id, string uniqueName)

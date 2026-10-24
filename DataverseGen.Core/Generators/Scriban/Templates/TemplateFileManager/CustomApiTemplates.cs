@@ -13,32 +13,26 @@ internal static class CustomApiTemplates
 	private const string RestrictedTemplateMain = "Main";
 	private const string TemplateFileName = "customapi.sbncs";
 
+	private const string ResponseTemplateFileName = "customapi.response.sbncs";
+
 	public static Template Load(string templateName, string templateDirName, bool isTypeScript)
 	{
-		if (!string.Equals(templateName, RestrictedTemplateMain, StringComparison.InvariantCultureIgnoreCase))
-		{
-			string path = $"{Directory.GetCurrentDirectory()}\\{templateDirName}\\{templateName}\\{TemplateFileName}";
+		return Load(templateName, templateDirName, isTypeScript, false);
+	}
 
-			if (File.Exists(path))
-			{
-				Console.WriteLine($@"Loading custom API template from path: {path}");
-
-				return Parse(File.ReadAllText(path), path);
-			}
-
-			Console.WriteLine($@"Template '{templateName}' has no {TemplateFileName}, using the built-in custom API template");
-		}
-
-		return LoadBuiltIn(isTypeScript);
+	public static Template LoadResponse(string templateName, string templateDirName, bool isTypeScript)
+	{
+		return Load(templateName, templateDirName, isTypeScript, true);
 	}
 
 	public static Template LoadBuiltIn(bool isTypeScript)
 	{
-		byte[] content = isTypeScript
-			? ScribanTemplates.Main_ts_customapi
-			: ScribanTemplates.Main_customapi;
+		return LoadBuiltIn(isTypeScript, false);
+	}
 
-		return Parse(Encoding.UTF8.GetString(content), null);
+	public static Template LoadBuiltInResponse(bool isTypeScript)
+	{
+		return LoadBuiltIn(isTypeScript, true);
 	}
 
 	public static string Render(Template template, object view)
@@ -57,6 +51,39 @@ internal static class CustomApiTemplates
 		return template.Render(context)
 		   .Replace("\r\n", "\n")
 		   .Replace("\n", "\r\n");
+	}
+
+	private static Template Load(string templateName, string templateDirName, bool isTypeScript, bool isResponse)
+	{
+		if (!string.Equals(templateName, RestrictedTemplateMain, StringComparison.InvariantCultureIgnoreCase))
+		{
+			string fileName = isResponse ? ResponseTemplateFileName : TemplateFileName;
+			string path = $"{Directory.GetCurrentDirectory()}\\{templateDirName}\\{templateName}\\{fileName}";
+
+			if (File.Exists(path))
+			{
+				Console.WriteLine($@"Loading custom API template from path: {path}");
+
+				return Parse(File.ReadAllText(path), path);
+			}
+
+			Console.WriteLine($@"Template '{templateName}' has no {fileName}, using the built-in custom API template");
+		}
+
+		return LoadBuiltIn(isTypeScript, isResponse);
+	}
+
+	private static Template LoadBuiltIn(bool isTypeScript, bool isResponse)
+	{
+		byte[] content = (isTypeScript, isResponse) switch
+		{
+			(true, true) => ScribanTemplates.Main_ts_customapi_response,
+			(true, false) => ScribanTemplates.Main_ts_customapi,
+			(false, true) => ScribanTemplates.Main_customapi_response,
+			_ => ScribanTemplates.Main_customapi
+		};
+
+		return Parse(Encoding.UTF8.GetString(content), null);
 	}
 
 	private static Template Parse(string text, string sourcePath)

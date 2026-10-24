@@ -247,13 +247,15 @@ public partial class ScribanGenerator : BaseGenerator
 				CustomApiCSharpGenerator.WriteCustomApis(customApiPath,
 				Context.Namespace,
 				Context.CustomApis,
-				CustomApiTemplates.Load(TemplateName, TemplateDirName, false));
+				CustomApiTemplates.Load(TemplateName, TemplateDirName, false),
+				CustomApiTemplates.LoadResponse(TemplateName, TemplateDirName, false));
 				break;
 
 			case "ts":
 				CustomApiTypeScriptGenerator.WriteCustomApis(customApiPath,
 				Context.CustomApis,
-				CustomApiTemplates.Load(TemplateName, TemplateDirName, true));
+				CustomApiTemplates.Load(TemplateName, TemplateDirName, true),
+				CustomApiTemplates.LoadResponse(TemplateName, TemplateDirName, true));
 				break;
 		}
 	}

@@ -22,6 +22,17 @@ public class CustomApiTypeScriptView
 	public List<CustomApiTypeScriptParameterView> Properties { get; set; } = [];
 }
 
+/// <summary>
+///  Template model of a single custom API TypeScript response interface. Members are exposed to Scriban in snake_case.
+/// </summary>
+public class CustomApiTypeScriptResponseView
+{
+	public string ClassName { get; set; }
+
+	/// <summary>Response properties; <c>request_property_name</c> is the key of the value in the JSON response.</summary>
+	public List<CustomApiTypeScriptParameterView> Properties { get; set; } = [];
+}
+
 public class CustomApiTypeScriptParameterView
 {
 	public bool IsBound { get; set; }
