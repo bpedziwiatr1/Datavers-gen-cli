@@ -8,6 +8,24 @@
         <ApplicationIcon>application_icon.ico</ApplicationIcon>
     </PropertyGroup>
 
+    <!-- dotnet tool package (dotnet pack); the exe is still produced by dotnet publish -->
+    <PropertyGroup>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>dataversegen</ToolCommandName>
+        <PackageId>DataverseGen.Tool</PackageId>
+        <Authors>Bartosz Pędziwiatr-Ratajczak</Authors>
+        <Description>Generates early-bound C# and TypeScript code from Dataverse metadata using Scriban templates.</Description>
+        <PackageTags>dataverse;powerplatform;dynamics;codegen;early-bound;scriban</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://github.com/bpedziwiatr1/Datavers-gen-cli</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <None Include="..\README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
       <PlatformTarget>x64</PlatformTarget>
     </PropertyGroup>

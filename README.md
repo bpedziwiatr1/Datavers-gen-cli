@@ -205,7 +205,25 @@ Then reference the template folder name in the config:
 
 - `pwsh -NoProfile -File build.ps1` publishes the CLI in Release mode.
 - The script creates both `includedotnet` and `nodotnet` ZIP packages under `publish/`.
-- Release automation also publishes those ZIPs as GitHub Release assets.
+- It also packs a dotnet tool package `DataverseGen.Tool.<version>.nupkg` into `publish/`.
+- Release automation also publishes those ZIPs and the `.nupkg` as GitHub Release assets.
+
+## Install as a dotnet tool
+
+Besides the ZIP/exe, the generator is available as a global dotnet tool (Windows only, requires the .NET 10 runtime). Download `DataverseGen.Tool.<version>.nupkg` from a GitHub Release into a folder and run:
+
+```powershell
+dotnet tool install --global DataverseGen.Tool --add-source <folder-with-nupkg>
+dataversegen        # run in the directory that contains dataversegen.config.json
+dotnet tool update --global DataverseGen.Tool --add-source <folder-with-nupkg>
+dotnet tool uninstall --global DataverseGen.Tool
+```
+
+Packages built from non-release branches have a prerelease version (e.g. `2.3.10-feature-name.1`); add `--prerelease` (or `--version <version>`) to `install`/`update`, otherwise the package is reported as not found.
+
+Custom templates are still loaded from `<current directory>/<TemplateDirectoryName>/<TemplateName>/`; example templates ship in the ZIP packages.
+
+The app waits for a key press before exiting only when it runs in its own console window (e.g. the exe was double-clicked). When started from an existing terminal it exits right away; `--no-pause` disables the pause in every case.
 
 ## Development Notes
 

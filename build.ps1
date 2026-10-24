@@ -5,6 +5,11 @@ function main([bool]$clearPublish) {
     $currentPath = Get-Location    
    buildPackage($true)
    buildPackage($false)
+   buildTool
+}
+function buildTool(){
+	# dotnet tool package; AnyCPU because it runs on the user's dotnet host
+	dotnet pack "DataverseGen.Cli/DataverseGen.Cli.csproj" -c 'Release' -p:PlatformTarget=AnyCPU -o $currentPath\publish
 }
 function buildPackage([bool]$selfContainer){
 	Remove-Item .\publish\bin -Recurse -ErrorAction Ignore

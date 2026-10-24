@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Reflection;
+using System.Runtime.InteropServices;
 using CommunityToolkit.Diagnostics;
 using DataverseGen.Core.Config;
 using DataverseGen.Core.DataConverter;
@@ -18,6 +19,7 @@ namespace DataverseGen.Cli;
 internal static class Program
 {
 	private const string DataverseGenConfigJson = "dataversegen.config.json";
+	private const string NoPauseArgument = "--no-pause";
 
 	private const string Title = @"
     ____        __       _    __                       ______         
@@ -78,9 +80,20 @@ internal static class Program
 
 	private static void Main(string[] args)
 	{
+		// Pause and resize only when started in its own console window (e.g. double-clicked exe),
+		// not when run from an existing terminal (e.g. as a dotnet tool).
+		bool ownConsoleWindow = IsOwnConsoleWindow();
+		bool pauseOnExit = ownConsoleWindow
+			&& !Console.IsInputRedirected
+			&& !args.Contains(NoPauseArgument, StringComparer.OrdinalIgnoreCase);
+
 		try
 		{
-			Console.SetWindowSize(140, 30);
+			if (ownConsoleWindow)
+			{
+				TrySetWindowSize(140, 30);
+			}
+
 			WriteLine(Title);
 			WriteVersion();
 
@@ -132,24 +145,59 @@ internal static class Program
 		}
 		finally
 		{
-			WriteSuccess(@"Bye Bye, see you next time Press any Key to exit");
-			Console.ReadKey();
+			if (pauseOnExit)
+			{
+				WriteSuccess(@"Bye Bye, see you next time Press any Key to exit");
+				Console.ReadKey();
+			}
+			else
+			{
+				WriteSuccess(@"Bye Bye, see you next time");
+			}
+		}
+	}
+
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern uint GetConsoleProcessList(uint[] processList, uint processCount);
+
+	private static bool IsOwnConsoleWindow()
+	{
+		if (Console.IsOutputRedirected)
+		{
+			return false;
+		}
+
+		uint[] processList = new uint[2];
+
+		return GetConsoleProcessList(processList, (uint)processList.Length) == 1;
+	}
+
+	private static void TrySetWindowSize(int width, int height)
+	{
+		try
+		{
+			Console.SetWindowSize(width, height);
+		}
+		catch (Exception e) when (e is IOException or ArgumentOutOfRangeException or PlatformNotSupportedException)
+		{
+			// Window size is cosmetic; ignore hosts that do not allow resizing.
 		}
 	}
 
 	private static void WriteVersion()
 	{
-		ProcessModule? assembly = Process.GetCurrentProcess().MainModule;
+		Assembly? assembly = Assembly.GetEntryAssembly();
 
 		if (assembly is null)
 		{
-			WriteLine("Unable to get main module version.");
+			WriteLine("Unable to get entry assembly version.");
 
 			return;
 		}
 
-		FileVersionInfo assemblyFileVersion = assembly.FileVersionInfo;
-		WriteLine($"Runtime Version: {assemblyFileVersion.FileVersion}");
+		string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+			?? assembly.GetName().Version?.ToString();
+		WriteLine($"Runtime Version: {version}");
 	}
 
 	private static void ScribanRun(ConfigModel config, Context context)
