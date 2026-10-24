@@ -40,7 +40,7 @@ public class DataverseCustomApiConverterTests
 	}
 
 	[TestMethod]
-	public void FilterCustomApiEntities_ReturnsAllWhenSelectionIsEmpty()
+	public void FilterCustomApiEntities_ReturnsNoneWhenSelectionIsEmpty()
 	{
 		Entity first = CreateCustomApiEntity("11111111-1111-1111-1111-111111111111", "newfirstapi");
 		Entity second = CreateCustomApiEntity("22222222-2222-2222-2222-222222222222", "newsecondapi");
@@ -49,9 +49,30 @@ public class DataverseCustomApiConverterTests
 			new[] { first, second },
 			Array.Empty<string>());
 
-		Assert.AreEqual(2, filtered.Count);
-		Assert.AreEqual(first.Id, filtered[0].Id);
-		Assert.AreEqual(second.Id, filtered[1].Id);
+		Assert.AreEqual(0, filtered.Count);
+	}
+
+	[TestMethod]
+	public void FilterCustomApiEntities_ReturnsNoneWhenSelectionIsNullOrBlank()
+	{
+		Entity first = CreateCustomApiEntity("11111111-1111-1111-1111-111111111111", "newfirstapi");
+
+		Assert.AreEqual(0, DataverseCustomApiConverter.FilterCustomApiEntities(new[] { first }, null!).Count);
+		Assert.AreEqual(0, DataverseCustomApiConverter.FilterCustomApiEntities(new[] { first }, new[] { " ", "" }).Count);
+	}
+
+	[TestMethod]
+	public void HasSelection_IsFalseForNullEmptyAndBlank()
+	{
+		Assert.IsFalse(DataverseCustomApiConverter.HasSelection(null!));
+		Assert.IsFalse(DataverseCustomApiConverter.HasSelection(Array.Empty<string>()));
+		Assert.IsFalse(DataverseCustomApiConverter.HasSelection(new[] { " ", "", null! }));
+	}
+
+	[TestMethod]
+	public void HasSelection_IsTrueWhenAnyNameIsPresent()
+	{
+		Assert.IsTrue(DataverseCustomApiConverter.HasSelection(new[] { " ", "newfirstapi" }));
 	}
 
 	[TestMethod]

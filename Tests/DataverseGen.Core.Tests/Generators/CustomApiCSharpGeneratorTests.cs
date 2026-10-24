@@ -37,7 +37,7 @@ public class CustomApiCSharpGeneratorTests
 					}
 				});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "processstatusrequest.cs");
+			string filePath = Path.Combine(tempRoot, "processstatusrequest.customapi.cs");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "namespace MyApp.CustomApis;");
@@ -96,14 +96,14 @@ public class CustomApiCSharpGeneratorTests
 					}
 				});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "processstatusrequest.cs");
+			string filePath = Path.Combine(tempRoot, "processstatusrequest.customapi.cs");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "public EntityReference Entity");
 			StringAssert.Contains(content, "public ProcessStatusRequest(bool flag, int count, EntityReference entity)");
 			StringAssert.Contains(content, "public bool Flag");
 			StringAssert.Contains(content, "public int Count");
-			StringAssert.Contains(content, "Parameters[\"entity\"] = value;");
+			StringAssert.Contains(content, "Parameters[ParameterNames.Entity] = value;");
 		}
 		finally
 		{
@@ -133,7 +133,7 @@ public class CustomApiCSharpGeneratorTests
 					}
 				});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "pingrequest.cs");
+			string filePath = Path.Combine(tempRoot, "pingrequest.customapi.cs");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "public PingRequest()");
@@ -180,7 +180,7 @@ public class CustomApiCSharpGeneratorTests
 					}
 				});
 
-			string filePath = Path.Combine(tempRoot, "customapi", "keywordrequest.cs");
+			string filePath = Path.Combine(tempRoot, "keywordrequest.customapi.cs");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "public string Private");
@@ -195,6 +195,146 @@ public class CustomApiCSharpGeneratorTests
 		}
 	}
 
+	private static CustomApiParameterModel Parameter(string name, string type, bool isOptional = false, string description = "")
+	{
+		return new CustomApiParameterModel
+		{
+			DisplayName = name,
+			UniqueName = $"new_{name.ToLowerInvariant()}",
+			PropertyName = name,
+			RequestPropertyName = $"new_{name.ToLowerInvariant()}",
+			ConstructorParameterName = name,
+			CSharpTypeName = type,
+			IsOptional = isOptional,
+			Description = description
+		};
+	}
+
+	private static string Render(CustomApiModel customApi)
+	{
+		return CustomApiCSharpGenerator.RenderRequestClass("MyApp.CustomApis", customApi);
+	}
+
+	[TestMethod]
+	public void RenderRequestClass_DeclaresParameterNamesConstants()
+	{
+		string content = Render(new CustomApiModel
+		{
+			RequestClassName = "FooRequest",
+			OperationName = "new_foo",
+			RequestParameters = [Parameter("Comment", "string"), Parameter("Count", "int")]
+		});
+
+		StringAssert.Contains(content, "public static class ParameterNames");
+		StringAssert.Contains(content, "public const string Comment = \"new_comment\";");
+		StringAssert.Contains(content, "public const string Count = \"new_count\";");
+	}
+
+	[TestMethod]
+	public void RenderRequestClass_UsesConstantsInAccessors()
+	{
+		string content = Render(new CustomApiModel
+		{
+			RequestClassName = "FooRequest",
+			OperationName = "new_foo",
+			RequestParameters = [Parameter("Comment", "string")]
+		});
+
+		StringAssert.Contains(content, "Parameters.TryGetValue(ParameterNames.Comment, out object value)");
+		StringAssert.Contains(content, "Parameters[ParameterNames.Comment] = value;");
+		Assert.IsFalse(content.Contains("Parameters[\"new_comment\"]"));
+		Assert.IsFalse(content.Contains("ContainsKey"));
+	}
+
+	[TestMethod]
+	public void RenderRequestClass_BoundEntityUsesConstant()
+	{
+		string content = Render(new CustomApiModel
+		{
+			RequestClassName = "FooRequest",
+			OperationName = "new_foo",
+			BoundEntityLogicalName = "account"
+		});
+
+		StringAssert.Contains(content, "public const string Entity = \"entity\";");
+		StringAssert.Contains(content, "Parameters[ParameterNames.Entity] = value;");
+	}
+
+	[TestMethod]
+	public void RenderRequestClass_OptionalParametersFollowRequiredWithDefaults()
+	{
+		string content = Render(new CustomApiModel
+		{
+			RequestClassName = "FooRequest",
+			OperationName = "new_foo",
+			BoundEntityLogicalName = "account",
+			RequestParameters =
+			[
+				Parameter("Note", "string", isOptional: true),
+				Parameter("Id", "Guid"),
+				Parameter("Count", "int", isOptional: true)
+			]
+		});
+
+		StringAssert.Contains(content, "public FooRequest(Guid id, EntityReference entity, string note = null, int? count = null)");
+		StringAssert.Contains(content, "if (note != null)");
+		StringAssert.Contains(content, "if (count != null)");
+		StringAssert.Contains(content, "Id = id;");
+	}
+
+	[TestMethod]
+	public void RenderRequestClass_OptionalValueTypePropertyIsNullable()
+	{
+		string content = Render(new CustomApiModel
+		{
+			RequestClassName = "FooRequest",
+			OperationName = "new_foo",
+			RequestParameters =
+			[
+				Parameter("Count", "int", isOptional: true),
+				Parameter("Flag", "bool"),
+				Parameter("Note", "string", isOptional: true)
+			]
+		});
+
+		StringAssert.Contains(content, "public int? Count");
+		StringAssert.Contains(content, "(int?)value");
+		StringAssert.Contains(content, "public bool Flag");
+		StringAssert.Contains(content, "public string Note");
+	}
+
+	[TestMethod]
+	public void RenderRequestClass_DocumentsRequiredAndOptional()
+	{
+		string content = Render(new CustomApiModel
+		{
+			RequestClassName = "FooRequest",
+			OperationName = "new_foo",
+			RequestParameters =
+			[
+				Parameter("Id", "Guid", description: "The <id> & more\r\nsecond line"),
+				Parameter("Note", "string", isOptional: true)
+			]
+		});
+
+		StringAssert.Contains(content, "/// <summary>Required. The &lt;id&gt; &amp; more second line</summary>");
+		StringAssert.Contains(content, "/// <summary>Optional.</summary>");
+	}
+
+	[TestMethod]
+	public void RenderRequestClass_RequiredBoundEntityIsDocumented()
+	{
+		string content = Render(new CustomApiModel
+		{
+			RequestClassName = "FooRequest",
+			OperationName = "new_foo",
+			BoundEntityLogicalName = "account"
+		});
+
+		StringAssert.Contains(content, "/// <summary>Required.</summary>");
+		StringAssert.Contains(content, "public FooRequest(EntityReference entity)");
+	}
+
 	[TestMethod]
 	public void WriteCustomApis_ReturnsWhenEnumerableIsNull()
 	{
@@ -205,7 +345,7 @@ public class CustomApiCSharpGeneratorTests
 		{
 			CustomApiCSharpGenerator.WriteCustomApis(tempRoot, "MyApp.CustomApis", (IEnumerable<CustomApiModel>)null!);
 
-			Assert.IsFalse(Directory.Exists(Path.Combine(tempRoot, "customapi")));
+			Assert.AreEqual(0, Directory.GetFileSystemEntries(tempRoot).Length);
 		}
 		finally
 		{

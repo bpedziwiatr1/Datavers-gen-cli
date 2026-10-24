@@ -1,0 +1,25 @@
+export default class {{class_name}} implements IWebApiRequest {
+	private operationName: string;{{for p in properties}}
+	private {{p.request_property_name}}: {{p.type_script_type}};{{end}}
+
+	constructor({{for p in constructor_parameters}}{{if !p.is_bound}}private {{end}}{{p.constructor_parameter_name}}: {{p.type_script_type}}{{if !for.last}}, {{end}}{{end}}) {
+		this.operationName = "{{operation_name}}";{{for p in constructor_parameters}}
+		this.{{p.request_property_name}} = {{p.constructor_parameter_name}};{{end}}
+	}
+	getInternalRequest(): IWebApiInternalRequest {
+		return {{"{"}}{{for p in properties}}
+			{{p.request_property_name}}: this.{{p.request_property_name}},{{end}}
+			getMetadata: () => ({
+				boundParameter: {{bound_parameter_name}},
+				parameterTypes: {{"{"}}{{for p in properties}}
+					{{p.request_property_name}}: {
+						typeName: "{{p.web_api_type_name}}",
+						structuralProperty: {{p.web_api_structural_property}}
+					},{{end}}
+				},
+				operationType: {{operation_type}},
+				operationName: this.operationName
+			})
+		} as IWebApiInternalRequest;
+	}
+}

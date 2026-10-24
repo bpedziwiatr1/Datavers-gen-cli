@@ -1,0 +1,32 @@
+using System;
+using Microsoft.Xrm.Sdk;
+
+namespace {{namespace}};
+
+public sealed class {{class_name}} : OrganizationRequest
+{
+	public const string RequestNameValue = "{{operation_name}}";
+{{if properties.size > 0}}
+	public static class ParameterNames
+	{
+{{for p in properties}}		public const string {{p.property_name}} = "{{p.request_property_name}}";
+{{end}}	}
+{{end}}
+	public {{class_name}}({{for p in constructor_parameters}}{{p.type}} {{p.parameter_name}}{{if p.is_optional}} = null{{end}}{{if !for.last}}, {{end}}{{end}})
+	{
+		RequestName = RequestNameValue;{{for p in constructor_parameters}}{{if p.is_optional}}
+		if ({{p.parameter_name}} != null)
+		{
+			{{p.property_name}} = {{p.parameter_name}};
+		}{{else}}
+		{{p.property_name}} = {{p.parameter_name}};{{end}}{{end}}
+	}
+{{for p in properties}}
+	/// <summary>{{p.summary}}</summary>
+	public {{p.type}} {{p.property_name}}
+	{
+		get => Parameters.TryGetValue(ParameterNames.{{p.property_name}}, out object value) ? ({{p.type}})value : default;
+		set => Parameters[ParameterNames.{{p.property_name}}] = value;
+	}
+{{end}}
+}

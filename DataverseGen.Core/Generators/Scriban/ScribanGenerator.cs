@@ -14,6 +14,8 @@ namespace DataverseGen.Core.Generators.Scriban;
 
 public partial class ScribanGenerator : BaseGenerator
 {
+	private readonly string _customApiOutPath;
+	private readonly bool _legacyEntityFileNames;
 	private string _fullOutputPath;
 
 	public ScribanGenerator(
@@ -21,12 +23,18 @@ public partial class ScribanGenerator : BaseGenerator
 		string templateDirName,
 		string outPath,
 		Context context,
-		TemplateEngineModel templateEngineModel)
+		TemplateEngineModel templateEngineModel,
+		string customApiOutPath = null,
+		bool legacyEntityFileNames = false)
 		: base(templateName,
 			templateDirName,
 			outPath,
 			context,
-			templateEngineModel) { }
+			templateEngineModel)
+	{
+		_customApiOutPath = customApiOutPath;
+		_legacyEntityFileNames = legacyEntityFileNames;
+	}
 
 	public override void GenerateTemplate()
 	{
@@ -82,7 +90,7 @@ public partial class ScribanGenerator : BaseGenerator
 
 		foreach (MappingEntity entity in Context.Entities)
 		{
-			WriteEntityTemplateToFile(templates.EntityTemplate, entity, "cs");
+			WriteEntityTemplateToFile(templates.EntityTemplate, entity, _legacyEntityFileNames ? "cs" : "entity.cs");
 			WriteEntityTemplateToFile(templates.FieldsTemplate, entity, "Fields.cs");
 			WriteEntityTemplateToFile(templates.EnumsTemplate, entity, "Enums.cs");
 		}
@@ -100,7 +108,7 @@ public partial class ScribanGenerator : BaseGenerator
 
 		foreach (MappingEntity entity in Context.Entities)
 		{
-			WriteEntityTemplateToFile(templates.EntityTemplate, entity, "attributes.ts");
+			WriteEntityTemplateToFile(templates.EntityTemplate, entity, _legacyEntityFileNames ? "attributes.ts" : "entity.ts");
 			WriteEntityTemplateToFile(templates.EnumsTemplate, entity, "enums.ts");
 			WriteEntityTemplateToFile(templates.RelationshipTemplate,
 				entity,
@@ -229,14 +237,23 @@ public partial class ScribanGenerator : BaseGenerator
 			return;
 		}
 
+		string customApiPath = string.IsNullOrWhiteSpace(_customApiOutPath)
+			? $"{_fullOutputPath}customapi"
+			: $"{Directory.GetCurrentDirectory()}\\{_customApiOutPath}\\";
+
 		switch (TemplateEngineModel.Type.ToLowerInvariant())
 		{
 			case "c#":
-				CustomApiCSharpGenerator.WriteCustomApis(_fullOutputPath, Context.Namespace, Context.CustomApis);
+				CustomApiCSharpGenerator.WriteCustomApis(customApiPath,
+				Context.Namespace,
+				Context.CustomApis,
+				CustomApiTemplates.Load(TemplateName, TemplateDirName, false));
 				break;
 
 			case "ts":
-				CustomApiTypeScriptGenerator.WriteCustomApis(_fullOutputPath, Context.CustomApis);
+				CustomApiTypeScriptGenerator.WriteCustomApis(customApiPath,
+				Context.CustomApis,
+				CustomApiTemplates.Load(TemplateName, TemplateDirName, true));
 				break;
 		}
 	}

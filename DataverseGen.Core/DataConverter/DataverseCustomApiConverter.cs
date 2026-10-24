@@ -24,16 +24,36 @@ public class DataverseCustomApiConverter
 	{
 		_dataverseConnector = dataverseConnector;
 		_selectedCustomApis = selectedCustomApis ?? Array.Empty<string>();
-		WriteInfo($@"Selected custom APIs: {string.Join(", ", _selectedCustomApis)}");
+		if (HasSelection(_selectedCustomApis))
+		{
+			WriteInfo($@"Selected custom APIs: {string.Join(", ", _selectedCustomApis)}");
+		}
+	}
+
+	internal static bool HasSelection(IReadOnlyCollection<string> selectedCustomApis)
+	{
+		return selectedCustomApis != null && selectedCustomApis.Any(name => !string.IsNullOrWhiteSpace(name));
 	}
 
 	public CustomApiModel[] GetCustomApis()
 	{
+		if (!HasSelection(_selectedCustomApis))
+		{
+			WriteWarning(@"No custom APIs configured in 'CustomApis' - skipping custom API generation");
+
+			return Array.Empty<CustomApiModel>();
+		}
+
 		Stopwatch stopper = Stopwatch.StartNew();
 		WriteInfo(@"Loading custom APIs");
 
 		List<Entity> customApiEntities = RetrieveCustomApiEntities();
 		List<Entity> selectedCustomApiEntities = FilterCustomApiEntities(customApiEntities, _selectedCustomApis);
+		foreach (Entity selectedCustomApi in selectedCustomApiEntities)
+		{
+			WriteSuccess($@"Found custom API: {GetString(selectedCustomApi, "uniquename")}, id: {GetEntityId(selectedCustomApi)}");
+		}
+
 		HashSet<string> selectedCustomApiIds = new(
 			selectedCustomApiEntities.Select(GetEntityId),
 			StringComparer.InvariantCultureIgnoreCase);
@@ -63,9 +83,9 @@ public class DataverseCustomApiConverter
 		IReadOnlyCollection<Entity> customApiEntities,
 		IReadOnlyCollection<string> selectedCustomApis)
 	{
-		if (selectedCustomApis == null || selectedCustomApis.Count == 0)
+		if (!HasSelection(selectedCustomApis))
 		{
-			return customApiEntities.ToList();
+			return new List<Entity>();
 		}
 
 		List<string> selectedCustomApiNames = new();
@@ -82,11 +102,6 @@ public class DataverseCustomApiConverter
 			{
 				selectedCustomApiNames.Add(normalizedSelectedCustomApi);
 			}
-		}
-
-		if (selectedCustomApiNames.Count == 0)
-		{
-			return customApiEntities.ToList();
 		}
 
 		Dictionary<string, Entity> availableCustomApis = customApiEntities

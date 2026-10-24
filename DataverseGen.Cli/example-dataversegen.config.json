@@ -3,7 +3,10 @@
   "CustomApis": [ "newupdatestatus" ],
   "ConnectionString": "AuthType=ClientSecret;Url={url};ClientId={ClientId};ClientSecret={ClientSecret}",
   "Namespace": "sad.CRM.Test",
-  "OutDirectory": "out-crm",
+  "OutDirectory": "out-crm", // fallback when EntitiesOutDirectory is not set
+  "EntitiesOutDirectory": "out-crm/entities", // optional
+  "CustomApiOutDirectory": "out-crm/customapi", // optional, default <entities dir>/customapi
+  "LegacyEntityFileNames": false, // optional, true = <name>.cs / <name>.attributes.ts instead of <name>.entity.cs|ts
   "TemplateName": "Main",
   "EnableConnectionStringValidation": true, // optional
   "ThrowOnEntityNotFound": true, // optional
