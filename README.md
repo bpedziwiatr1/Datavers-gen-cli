@@ -16,7 +16,7 @@ Dataverse early-bound generator for Power Platform, built as a .NET 10 CLI on to
 ## Current Behavior
 
 - The app loads Dataverse metadata for the entities listed in `Entities`.
-- If `CustomApis` is set, the custom API output is narrowed to the listed custom API unique names.
+- Custom APIs are generated only for the unique names listed in `CustomApis`; if it is omitted or empty, nothing is generated and a warning is shown.
 - It validates the connection string when `EnableConnectionStringValidation` is enabled.
 - It can throw when an entity from `Entities` is missing if `ThrowOnEntityNotFound` is enabled.
 - `TemplateEngine.Name` currently supports `scriban`.
@@ -137,7 +137,7 @@ The generated wrappers use:
 - request parameter names from Dataverse metadata
 - `boundParameter` metadata when the custom API is bound to an entity
 
-If `CustomApis` is omitted or empty, all available custom APIs are generated.
+If `CustomApis` is omitted or empty, no custom APIs are generated and only a warning is shown.
 
 Each selected API is logged (`Found custom API: ...` when loaded, `Generated custom API: ... -> <file>` when written). Files from older versions (`<name>.cs`/`<name>.ts`) are not removed; delete them manually after upgrading.
 
@@ -159,7 +159,7 @@ The names are matched against the Dataverse `uniquename` field, case-insensitive
 ## Configuration Fields
 
 - `Entities` - Dataverse schema names to generate.
-- `CustomApis` - Custom API unique names to generate. If omitted or empty, all custom APIs are generated for the selected output type.
+- `CustomApis` - Custom API unique names to generate. If omitted or empty, no custom APIs are generated (a warning is shown).
 - `ConnectionString` - Dataverse connection string. If omitted, the CLI asks for it and stores it in Windows Credential Manager.
 - `Namespace` - Namespace used in generated code.
 - `OutDirectory` - Output folder for generated files. Used for entities when `EntitiesOutDirectory` is not set.
