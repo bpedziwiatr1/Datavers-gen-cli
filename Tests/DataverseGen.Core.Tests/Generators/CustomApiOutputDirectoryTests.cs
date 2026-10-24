@@ -11,7 +11,7 @@ public class CustomApiOutputDirectoryTests
 	[TestMethod]
 	public void GenerateTemplate_WithoutCustomApiOutPath_WritesToCustomApiFolderInEntitiesFolder()
 	{
-		Run(null, root => Assert.IsTrue(File.Exists(Path.Combine(root, "entities", "customapi", "pingrequest.cs"))));
+		Run(null, root => Assert.IsTrue(File.Exists(Path.Combine(root, "entities", "customapi", "pingrequest.customapi.cs"))));
 	}
 
 	[TestMethod]
@@ -19,7 +19,7 @@ public class CustomApiOutputDirectoryTests
 	{
 		Run("apis", root =>
 		{
-			Assert.IsTrue(File.Exists(Path.Combine(root, "apis", "pingrequest.cs")));
+			Assert.IsTrue(File.Exists(Path.Combine(root, "apis", "pingrequest.customapi.cs")));
 			Assert.IsFalse(Directory.Exists(Path.Combine(root, "entities", "customapi")));
 		});
 	}

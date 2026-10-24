@@ -35,7 +35,7 @@ public class CustomApiTypeScriptGeneratorTests
 				}
 			});
 
-			string filePath = Path.Combine(tempRoot, "processstatusrequest.ts");
+			string filePath = Path.Combine(tempRoot, "processstatusrequest.customapi.ts");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "export default class ProcessStatusRequest implements IWebApiRequest");
@@ -95,7 +95,7 @@ public class CustomApiTypeScriptGeneratorTests
 				}
 			});
 
-			string filePath = Path.Combine(tempRoot, "getstatusrequest.ts");
+			string filePath = Path.Combine(tempRoot, "getstatusrequest.customapi.ts");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "constructor()");
@@ -129,7 +129,7 @@ public class CustomApiTypeScriptGeneratorTests
 				}
 			});
 
-			string filePath = Path.Combine(tempRoot, "boundrequest.ts");
+			string filePath = Path.Combine(tempRoot, "boundrequest.customapi.ts");
 			string content = File.ReadAllText(filePath);
 
 			StringAssert.Contains(content, "private entity: any;");

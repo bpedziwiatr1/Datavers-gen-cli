@@ -34,6 +34,11 @@ public class DataverseCustomApiConverter
 
 		List<Entity> customApiEntities = RetrieveCustomApiEntities();
 		List<Entity> selectedCustomApiEntities = FilterCustomApiEntities(customApiEntities, _selectedCustomApis);
+		foreach (Entity selectedCustomApi in selectedCustomApiEntities)
+		{
+			WriteSuccess($@"Found custom API: {GetString(selectedCustomApi, "uniquename")}, id: {GetEntityId(selectedCustomApi)}");
+		}
+
 		HashSet<string> selectedCustomApiIds = new(
 			selectedCustomApiEntities.Select(GetEntityId),
 			StringComparer.InvariantCultureIgnoreCase);

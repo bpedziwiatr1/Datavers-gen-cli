@@ -24,8 +24,9 @@ public static class CustomApiTypeScriptGenerator
 
 		foreach (CustomApiModel customApi in customApis)
 		{
-			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.ts");
+			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.ts");
 			File.WriteAllText(filePath, RenderRequestClass(customApi, template), Encoding.UTF8);
+			Console.WriteLine($@"Generated custom API: {customApi.UniqueName} -> {filePath}");
 		}
 	}
 

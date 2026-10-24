@@ -8,8 +8,8 @@ Dataverse early-bound generator for Power Platform, built as a .NET 10 CLI on to
 - If `ConnectionString` is missing, the app falls back to Windows Credential Manager and prompts for one.
 - The Scriban generator supports both `C#` and `ts` output types.
 - Generation can run in single-file or multi-file mode.
-- TypeScript generation also emits custom API request wrappers in `CustomApiOutDirectory` (default `customapi/` next to the entities).
-- C# generation also emits custom API request wrappers in `CustomApiOutDirectory` (default `customapi/` next to the entities).
+- TypeScript generation also emits custom API request wrappers in `CustomApiOutDirectory` (default `customapi/` next to the entities), one `<name>.customapi.cs|ts` file per API.
+- C# generation also emits custom API request wrappers in `CustomApiOutDirectory` (default `customapi/` next to the entities), one `<name>.customapi.cs|ts` file per API.
 - Built-in templates are available through `TemplateName = "Main"`, and project templates can be copied under a `Templates` folder.
 - Release builds are packaged into self-contained and framework-dependent ZIP archives by `build.ps1`.
 
@@ -102,6 +102,7 @@ The generator reads the Dataverse metadata and writes custom API wrappers into:
 
 ```text
 <CustomApiOutDirectory>   (default: <entities folder>/customapi/)
+  <class name lowercase>.customapi.cs|ts   e.g. pingrequest.customapi.cs
 ```
 
 Example TypeScript config that enables the feature:
@@ -137,6 +138,8 @@ The generated wrappers use:
 - `boundParameter` metadata when the custom API is bound to an entity
 
 If `CustomApis` is omitted or empty, all available custom APIs are generated.
+
+Each selected API is logged (`Found custom API: ...` when loaded, `Generated custom API: ... -> <file>` when written). Files from older versions (`<name>.cs`/`<name>.ts`) are not removed; delete them manually after upgrading.
 
 ### Filtering custom APIs
 
