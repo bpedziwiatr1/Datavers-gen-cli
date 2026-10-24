@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-DataverseGen is a .NET 10 (`net10.0`) Windows CLI that reads Dataverse (Power Platform) metadata and generates early-bound C# or TypeScript code via Scriban templates. Solution: `DataverseGen.sln` with three projects:
+DataverseGen is a .NET 10 (`net10.0`) Windows CLI that reads Dataverse (Power Platform) metadata and generates early-bound C# or TypeScript code via Scriban templates. Solution: `DataverseGen.sln` with these projects:
 
 - `DataverseGen.Cli` — console entry point (`Program.cs`). Windows-only (uses Windows Credential Manager).
 - `DataverseGen.Core` — config, connection-string validation, metadata loading, generators, templates.
 - `Tests/DataverseGen.Core.Tests` — MSTest tests for Core (`InternalsVisibleTo` is set, so `internal` members are testable).
+- `Tests/DataverseGen.Cli.Tests` — MSTest tests for the CLI UI on `Spectre.Console.Testing.TestConsole` (`InternalsVisibleTo` via the csproj).
 
 ## Commands
 
@@ -40,7 +41,7 @@ Entry point `Program.Main` hosts a Spectre.Console.Cli `CommandApp` (`DataverseG
 
 ### Reporting
 
-Core never writes to the console. All output goes through `IGenerationReporter` (`Core/Reporting`: `Log`, `StageStarted`, `ItemCompleted`, `StageCompleted`); services take it as an optional last constructor/method parameter defaulting to `NullReporter.Instance`. The CLI composes `ConsoleReporter` (Debug and stack traces only with `-v|--verbose`) with `FileLogReporter` (`--log [PATH]`, always full detail). Both sinks mask secrets via `SecretMasker`; never put a raw connection string into a message or exception. Do not call `SetApplicationVersion` on the `CommandApp` (it would register `-v|--version` and clash with `--verbose`).
+Core never writes to the console. All output goes through `IGenerationReporter` (`Core/Reporting`: `Log`, `StageStarted`, `ItemStarted`, `ItemCompleted`, `StageCompleted`); services take it as an optional last constructor/method parameter defaulting to `NullReporter.Instance`. The CLI composes `Ui/SpectreReporter` (live progress bars; plain lines when output is redirected / non-interactive; Debug and stack traces only with `-v|--verbose`) with `FileLogReporter` (`--log [PATH]`, always full detail), wrapped in `PerformanceCollector`, which aggregates durations, request counts and written files into a `PerformanceReport` (rendered by `Ui/SummaryRenderer`, appended as text to the log). Each item is reported once per `ItemPhase` (`Retrieve` by the converters, `Generate` by the generators with `Files`/`Bytes`); `ItemKind.Output` is for files that belong to no single item (single-file output). Call `ItemStarted` before work on an item begins (the live bar shows the names in flight; several when run in parallel) and report Dataverse round trips with `RequestCompleted`. Credential prompts and connection-string validation must run before `SpectreReporter.Run` (live display and prompts cannot overlap). Both sinks mask secrets via `SecretMasker`; never put a raw connection string into a message or exception. Do not call `SetApplicationVersion` on the `CommandApp` (it would register `-v|--version` and clash with `--verbose`).
 
 ### Templates
 

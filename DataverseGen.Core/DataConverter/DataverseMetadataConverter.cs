@@ -107,6 +107,7 @@ public class DataverseMetadataConverter
 
 	private EntityMetadata RetrieveEntityMetadata(string selectedEntity)
 	{
+		_reporter.ItemStarted(ItemKind.Entity, ItemPhase.Retrieve, selectedEntity);
 		Stopwatch stopper = Stopwatch.StartNew();
 
 		try
@@ -120,6 +121,7 @@ public class DataverseMetadataConverter
 
 			RetrieveEntityResponse response =
 				(RetrieveEntityResponse)_dataverseConnector.OrganizationService.Execute(req);
+			_reporter.RequestCompleted(Stage.Entities, stopper.Elapsed);
 
 			_reporter.Log(LogLevel.Debug,
 				$@"Found entity: {selectedEntity}, metadata-id: {response.EntityMetadata.MetadataId}");

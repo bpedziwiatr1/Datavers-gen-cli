@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security;
 using System.Text;
 using DataverseGen.Core.CustomApi;
@@ -37,19 +38,34 @@ public static class CustomApiCSharpGenerator
 
 		foreach (CustomApiModel customApi in customApis)
 		{
+			reporter.ItemStarted(ItemKind.CustomApi, ItemPhase.Generate, customApi.UniqueName);
+			Stopwatch timer = Stopwatch.StartNew();
+			int files = 1;
 			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.cs");
 			File.WriteAllText(filePath, RenderRequestClass(namespaceName, customApi, template), Encoding.UTF8);
+			long bytes = new FileInfo(filePath).Length;
 			reporter.Log(LogLevel.Debug, $@"Generated custom API: {customApi.UniqueName} -> {filePath}");
 
-			if (customApi.ResponseProperties is not { Length: > 0 })
+			if (customApi.ResponseProperties is { Length: > 0 })
 			{
-				continue;
+				responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(false);
+				string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.cs");
+				File.WriteAllText(responsePath, RenderResponseClass(namespaceName, customApi, responseTemplate), Encoding.UTF8);
+				files++;
+				bytes += new FileInfo(responsePath).Length;
+				reporter.Log(LogLevel.Debug, $@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
 			}
 
-			responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(false);
-			string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.cs");
-			File.WriteAllText(responsePath, RenderResponseClass(namespaceName, customApi, responseTemplate), Encoding.UTF8);
-			reporter.Log(LogLevel.Debug, $@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
+			reporter.ItemCompleted(new ItemResult
+			{
+				Kind = ItemKind.CustomApi,
+				Phase = ItemPhase.Generate,
+				Name = customApi.UniqueName,
+				Status = ItemStatus.Ok,
+				Elapsed = timer.Elapsed,
+				Files = files,
+				Bytes = bytes
+			});
 		}
 	}
 

@@ -79,6 +79,9 @@ public class DataverseCustomApiConverter
 		   .OrderBy(api => api.RequestClassName)
 		   .ToList();
 
+		// The three queries are shared by all APIs, so every API gets an equal share of the retrieval time.
+		TimeSpan retrieveShare = result.Count > 0 ? stopper.Elapsed / result.Count : TimeSpan.Zero;
+
 		foreach (CustomApiModel api in result)
 		{
 			_reporter.ItemCompleted(new ItemResult
@@ -86,7 +89,8 @@ public class DataverseCustomApiConverter
 				Kind = ItemKind.CustomApi,
 				Name = api.UniqueName,
 				Status = ItemStatus.Ok,
-				Detail = $"{api.RequestParameters.Length} parameters · {api.ResponseProperties.Length} response properties"
+				Detail = $"{api.RequestParameters.Length} parameters · {api.ResponseProperties.Length} response properties",
+				Elapsed = retrieveShare
 			});
 		}
 
@@ -192,7 +196,9 @@ public class DataverseCustomApiConverter
 			ColumnSet = new ColumnSet(true)
 		};
 
+		Stopwatch requestTimer = Stopwatch.StartNew();
 		EntityCollection response = _dataverseConnector.OrganizationService.RetrieveMultiple(query);
+		_reporter.RequestCompleted(Stage.CustomApis, requestTimer.Elapsed);
 		_reporter.Log(LogLevel.Debug, $@"Found custom APIs: {response.Entities.Count}");
 		return response.Entities.ToList();
 	}
@@ -204,7 +210,9 @@ public class DataverseCustomApiConverter
 			ColumnSet = new ColumnSet(true)
 		};
 
+		Stopwatch requestTimer = Stopwatch.StartNew();
 		EntityCollection response = _dataverseConnector.OrganizationService.RetrieveMultiple(query);
+		_reporter.RequestCompleted(Stage.CustomApis, requestTimer.Elapsed);
 		_reporter.Log(LogLevel.Debug, $@"Found {tableName}: {response.Entities.Count}");
 		return response.Entities.ToList();
 	}

@@ -43,7 +43,7 @@ public partial class ScribanGenerator : BaseGenerator
 	public override void GenerateTemplate()
 	{
 		Stopwatch stopper = Stopwatch.StartNew();
-		_reporter.StageStarted(Stage.Generate, Context.Entities?.Length ?? 0);
+		_reporter.StageStarted(Stage.Generate, GetGenerateItemCount());
 		_reporter.Log(LogLevel.Debug, $@"Scriban template generator, template '{TemplateName}'");
 		_fullOutputPath = $"{Directory.GetCurrentDirectory()}\\{OutPath}\\";
 
@@ -95,15 +95,21 @@ public partial class ScribanGenerator : BaseGenerator
 
 		foreach (MappingEntity entity in Context.Entities)
 		{
-			WriteEntityTemplateToFile(templates.EntityTemplate, entity, _legacyEntityFileNames ? "cs" : "entity.cs");
-			WriteEntityTemplateToFile(templates.FieldsTemplate, entity, "Fields.cs");
-			WriteEntityTemplateToFile(templates.EnumsTemplate, entity, "Enums.cs");
+			_reporter.ItemStarted(ItemKind.Entity, ItemPhase.Generate, entity.LogicalName);
+			Stopwatch entityTimer = Stopwatch.StartNew();
+			long bytes = WriteEntityTemplateToFile(templates.EntityTemplate, entity, _legacyEntityFileNames ? "cs" : "entity.cs");
+			bytes += WriteEntityTemplateToFile(templates.FieldsTemplate, entity, "Fields.cs");
+			bytes += WriteEntityTemplateToFile(templates.EnumsTemplate, entity, "Enums.cs");
+			ReportEntityGenerated(entity, 3, bytes, entityTimer.Elapsed);
 		}
 
+		_reporter.ItemStarted(ItemKind.Output, ItemPhase.Generate, "XrmServiceContext.cs");
+		Stopwatch contextTimer = Stopwatch.StartNew();
 		string xrmContextContent =
 			RemoveEmptyLines(templates.XrmContextTemplate.Render(Context));
 
-		File.WriteAllText($"{dir}/XrmServiceContext.cs", xrmContextContent, Encoding.UTF8);
+		long contextBytes = WriteFile($"{dir}/XrmServiceContext.cs", xrmContextContent);
+		ReportOutputGenerated("XrmServiceContext.cs", contextBytes, contextTimer.Elapsed);
 	}
 
 	private void MultiOutputGeneratorTypeScript()
@@ -113,11 +119,14 @@ public partial class ScribanGenerator : BaseGenerator
 
 		foreach (MappingEntity entity in Context.Entities)
 		{
-			WriteEntityTemplateToFile(templates.EntityTemplate, entity, _legacyEntityFileNames ? "attributes.ts" : "entity.ts");
-			WriteEntityTemplateToFile(templates.EnumsTemplate, entity, "enums.ts");
-			WriteEntityTemplateToFile(templates.RelationshipTemplate,
+			_reporter.ItemStarted(ItemKind.Entity, ItemPhase.Generate, entity.LogicalName);
+			Stopwatch entityTimer = Stopwatch.StartNew();
+			long bytes = WriteEntityTemplateToFile(templates.EntityTemplate, entity, _legacyEntityFileNames ? "attributes.ts" : "entity.ts");
+			bytes += WriteEntityTemplateToFile(templates.EnumsTemplate, entity, "enums.ts");
+			bytes += WriteEntityTemplateToFile(templates.RelationshipTemplate,
 				entity,
 				"relationships.ts");
+			ReportEntityGenerated(entity, 3, bytes, entityTimer.Elapsed);
 		}
 	}
 
@@ -147,6 +156,8 @@ public partial class ScribanGenerator : BaseGenerator
 
 	private void SingleFileCSharp()
 	{
+		_reporter.ItemStarted(ItemKind.Output, ItemPhase.Generate, "XrmServiceContext.cs");
+		Stopwatch timer = Stopwatch.StartNew();
 		ParserOptions options = new();
 		LexerOptions lexerOptions = new()
 		{
@@ -170,11 +181,14 @@ public partial class ScribanGenerator : BaseGenerator
 		context.PushGlobal(dataScriptObject);
 
 		string content = RemoveEmptyLines(template.Render(context));
-		File.WriteAllText($"{_fullOutputPath}XrmServiceContext.cs", content, Encoding.UTF8);
+		long bytes = WriteFile($"{_fullOutputPath}XrmServiceContext.cs", content);
+		ReportOutputGenerated("XrmServiceContext.cs", bytes, timer.Elapsed);
 	}
 
 	private void SingleFileTypescript()
 	{
+		_reporter.ItemStarted(ItemKind.Output, ItemPhase.Generate, "dataverse.metadata.ts");
+		Stopwatch timer = Stopwatch.StartNew();
 		ParserOptions options = new();
 		LexerOptions lexerOptions = new()
 		{
@@ -198,10 +212,54 @@ public partial class ScribanGenerator : BaseGenerator
 		context.PushGlobal(dataScriptObject);
 
 		string content = RemoveEmptyLines(template.Render(context));
-		File.WriteAllText($"{_fullOutputPath}dataverse.metadata.ts", content, Encoding.UTF8);
+		long bytes = WriteFile($"{_fullOutputPath}dataverse.metadata.ts", content);
+		ReportOutputGenerated("dataverse.metadata.ts", bytes, timer.Elapsed);
 	}
 
-	private void WriteEntityTemplateToFile(
+	private int GetGenerateItemCount()
+	{
+		int apiCount = Context.CustomApis?.Length ?? 0;
+
+		return (TemplateEngineModel.IsSingleOutput ? 1 : Context.Entities?.Length ?? 0) + apiCount;
+	}
+
+	/// <summary>Writes <paramref name="content" /> and returns the number of bytes on disk.</summary>
+	private static long WriteFile(string path, string content)
+	{
+		File.WriteAllText(path, content, Encoding.UTF8);
+
+		return new FileInfo(path).Length;
+	}
+
+	private void ReportEntityGenerated(MappingEntity entity, int files, long bytes, TimeSpan elapsed)
+	{
+		_reporter.ItemCompleted(new ItemResult
+		{
+			Kind = ItemKind.Entity,
+			Phase = ItemPhase.Generate,
+			Name = entity.LogicalName,
+			Status = ItemStatus.Ok,
+			Elapsed = elapsed,
+			Files = files,
+			Bytes = bytes
+		});
+	}
+
+	private void ReportOutputGenerated(string fileName, long bytes, TimeSpan elapsed)
+	{
+		_reporter.ItemCompleted(new ItemResult
+		{
+			Kind = ItemKind.Output,
+			Phase = ItemPhase.Generate,
+			Name = fileName,
+			Status = ItemStatus.Ok,
+			Elapsed = elapsed,
+			Files = 1,
+			Bytes = bytes
+		});
+	}
+
+	private long WriteEntityTemplateToFile(
 		Template template,
 		MappingEntity entity,
 		string outputFileSuffixWithExtension)
@@ -231,8 +289,10 @@ public partial class ScribanGenerator : BaseGenerator
 		}
 
 		string entityPath = $"{_fullOutputPath}/{entity.HybridName.ToLower()}.{outputFileSuffixWithExtension}";
-		File.WriteAllText(entityPath, entityContent, Encoding.UTF8);
+		long bytes = WriteFile(entityPath, entityContent);
 		_reporter.Log(LogLevel.Debug, $@"Generated entity: {entity.LogicalName} -> {entityPath}");
+
+		return bytes;
 	}
 
 	private void GenerateCustomApis()

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using DataverseGen.Core.Scaffolding;
+using DataverseGen.Cli.Ui;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -43,6 +44,8 @@ internal sealed class InitCommand : Command<InitCommand.Settings>
 
 	public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken)
 	{
+		Banner.Render(AnsiConsole.Console, Theme.For(AnsiConsole.Console), Banner.CreateInfo());
+
 		ConfigScaffoldOptions options = new();
 		bool interactive = !settings.Yes && !Console.IsInputRedirected;
 

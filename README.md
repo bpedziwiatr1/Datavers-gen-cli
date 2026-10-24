@@ -318,10 +318,25 @@ dataversegen --log                  # full-detail log in ./dataversegen.log (ove
 dataversegen --log build\gen.log    # log to a custom path
 ```
 
-By default errors show a short message only. The log file always contains debug entries and full stack traces. Secrets in connection strings (`ClientSecret`, `Password`, `Secret`, `Key`, `Thumbprint`) are masked on the console and in the log.
+By default errors show a short panel (message + hint) only. The log file always contains debug entries, full stack traces and the performance report. Secrets in connection strings (`ClientSecret`, `Password`, `Secret`, `Key`, `Thumbprint`) are masked on the console and in the log.
+
+### Console output and performance report
+
+`generate` prints a compact header (version, runtime, working directory, config path, mode), then one progress bar per stage (Connect, Entities, Custom APIs, Generate) with the same layout for entities and custom APIs; the name of the entity / custom API currently being retrieved or generated is shown at the end of the bar. Warnings and failures are printed as they happen; `-v` additionally prints every processed item and debug lines.
+
+When the run finishes, a summary follows:
+
+- an **Entities** table and a **Custom APIs** table with identical columns (status, name, details, retrieve ms, generate ms, files),
+- a list of all warnings and failures,
+- a **Performance** panel: stage durations (bar chart), wall-clock time, number and total time of Dataverse requests, degree of parallelism, files and bytes written, throughput (entities/s, files/s), the three slowest items, the sum of item times versus wall-clock (speed-up; 1.0x when sequential) and peak memory,
+- a footer with the log path when `--log` is used (the performance report is appended to the log file as plain text).
+
+For custom APIs the three metadata queries are shared, so their retrieve time is split evenly across the APIs. Errors are shown as a panel with a short message and a hint (e.g. *Config not found - run `dataversegen init`*); the stack trace appears only with `-v` and is always written to the log file.
+
+When the output is redirected to a file or the terminal is not interactive (CI), the progress bars are replaced by plain lines without ANSI codes. Icons fall back to ASCII (`+ ! x >`) when the console cannot display Unicode.
 
 ## Development Notes
 
 - The solution targets `net10.0` (SDK pinned in `global.json`).
 - Run `dotnet test DataverseGen.sln` after changing generator logic.
-- The test project is `Tests/DataverseGen.Core.Tests`.
+- The test projects are `Tests/DataverseGen.Core.Tests` and `Tests/DataverseGen.Cli.Tests` (UI on `Spectre.Console.Testing.TestConsole`).

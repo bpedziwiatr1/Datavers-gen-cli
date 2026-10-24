@@ -1,6 +1,6 @@
-﻿using System.Reflection;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using DataverseGen.Cli.Commands;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using static DataverseGen.Cli.ConsoleOutput;
 
@@ -13,14 +13,6 @@ namespace DataverseGen.Cli;
 internal static class Program
 {
 	private const string NoPauseArgument = "--no-pause";
-
-	private const string Title = @"
-    ____        __       _    __                       ______
-   / __ \____ _/ /_____ | |  / /__  _____________     / ____/__  ____
-  / / / / __ `/ __/ __ `/ | / / _ \/ ___/ ___/ _ \   / / __/ _ \/ __ \
- / /_/ / /_/ / /_/ /_/ /| |/ /  __/ /  (__  )  __/  / /_/ /  __/ / / /
-/_____/\__,_/\__/\__,_/ |___/\___/_/  /____/\___/   \____/\___/_/ /_/
-";
 
 	private static int Main(string[] args)
 	{
@@ -40,9 +32,6 @@ internal static class Program
 				TrySetWindowSize(140, 30);
 			}
 
-			WriteLine(Title);
-			WriteVersion();
-
 			CommandApp<GenerateCommand> app = new();
 			app.Configure(config =>
 			{
@@ -61,18 +50,14 @@ internal static class Program
 		{
 			if (pauseOnExit)
 			{
-				WriteSuccess(@"Bye Bye, see you next time Press any Key to exit");
+				WriteLine("Press any key to exit", Color.Grey);
 				Console.ReadKey();
-			}
-			else
-			{
-				WriteSuccess(@"Bye Bye, see you next time");
 			}
 		}
 	}
 
 	/// <summary>Drops <c>--no-pause</c> and maps a leading <c>--init|-i</c> / <c>--templates|-t</c> flag to its command.</summary>
-	private static string[] NormalizeArguments(string[] args)
+	internal static string[] NormalizeArguments(string[] args)
 	{
 		string[] rest = args
 			.Where(arg => !arg.Equals(NoPauseArgument, StringComparison.OrdinalIgnoreCase))
@@ -118,21 +103,5 @@ internal static class Program
 		{
 			// Window size is cosmetic; ignore hosts that do not allow resizing.
 		}
-	}
-
-	private static void WriteVersion()
-	{
-		Assembly? assembly = Assembly.GetEntryAssembly();
-
-		if (assembly is null)
-		{
-			WriteLine("Unable to get entry assembly version.");
-
-			return;
-		}
-
-		string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-			?? assembly.GetName().Version?.ToString();
-		WriteLine($"Runtime Version: {version}");
 	}
 }

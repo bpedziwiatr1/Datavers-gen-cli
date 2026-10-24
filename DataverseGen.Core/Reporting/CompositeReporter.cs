@@ -25,6 +25,14 @@ public sealed class CompositeReporter : IGenerationReporter
 		}
 	}
 
+	public void ItemStarted(ItemKind kind, ItemPhase phase, string name)
+	{
+		foreach (IGenerationReporter reporter in _reporters)
+		{
+			reporter.ItemStarted(kind, phase, name);
+		}
+	}
+
 	public void ItemCompleted(ItemResult result)
 	{
 		foreach (IGenerationReporter reporter in _reporters)
@@ -38,6 +46,14 @@ public sealed class CompositeReporter : IGenerationReporter
 		foreach (IGenerationReporter reporter in _reporters)
 		{
 			reporter.StageCompleted(stage, elapsed);
+		}
+	}
+
+	public void RequestCompleted(Stage stage, TimeSpan elapsed)
+	{
+		foreach (IGenerationReporter reporter in _reporters)
+		{
+			reporter.RequestCompleted(stage, elapsed);
 		}
 	}
 }

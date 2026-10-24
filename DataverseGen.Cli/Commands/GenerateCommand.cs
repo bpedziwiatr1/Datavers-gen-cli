@@ -7,6 +7,8 @@ using DataverseGen.Core.Generators.Scriban;
 using DataverseGen.Core.Metadata;
 using Meziantou.Framework.Win32;
 using Newtonsoft.Json;
+using DataverseGen.Cli.Ui;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using DataverseGen.Core.Reporting;
 
@@ -34,11 +36,14 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 
 	public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken)
 	{
+		IAnsiConsole console = AnsiConsole.Console;
+		Theme theme = Theme.For(console);
 		FileLogReporter? fileLog = null;
+		string? logPath = null;
 
 		if (settings.Log is { IsSet: true })
 		{
-			string logPath = string.IsNullOrWhiteSpace(settings.Log.Value) ? DefaultLogPath : settings.Log.Value;
+			logPath = string.IsNullOrWhiteSpace(settings.Log.Value) ? DefaultLogPath : settings.Log.Value;
 
 			try
 			{
@@ -52,64 +57,98 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 			}
 		}
 
+		Banner.Render(console,
+			theme,
+			Banner.CreateInfo(settings.ConfigPath, DescribeMode(settings, logPath)));
+
 		using (fileLog)
 		{
-			ConsoleReporter console = new(settings.Verbose);
-			IGenerationReporter reporter = fileLog is null ? console : new CompositeReporter(console, fileLog);
+			bool live = SpectreReporter.CanRenderLive(console, Console.IsOutputRedirected);
+			SpectreReporter ui = new(console, theme, settings.Verbose, live);
+			IGenerationReporter sinks = fileLog is null ? ui : new CompositeReporter(ui, fileLog);
+			PerformanceCollector performance = new(sinks);
 
-			return Run(settings, reporter);
+			return Run(settings, console, theme, ui, performance, fileLog, logPath);
 		}
 	}
 
-	private static int Run(Settings settings, IGenerationReporter reporter)
+	private static string DescribeMode(Settings settings, string? logPath)
+	{
+		// Metadata retrieval and generation are sequential until the parallel pipeline lands.
+		return $"verbose {(settings.Verbose ? "on" : "off")} · log {(logPath is null ? "off" : logPath)} · parallelism 1";
+	}
+
+	private static int Run(
+		Settings settings,
+		IAnsiConsole console,
+		Theme theme,
+		SpectreReporter ui,
+		PerformanceCollector reporter,
+		FileLogReporter? fileLog,
+		string? logPath)
 	{
 		try
 		{
 			reporter.Log(LogLevel.Debug, $"Config: {settings.ConfigPath}");
+
+			// Credential prompt and connection-string validation run before the live display starts:
+			// prompts and live rendering cannot overlap.
 			ConfigModel config = GetConfig(settings.ConfigPath);
 			ConfigValidation.Validate(config);
 			DataverseConnector dataverseConnector = new(config.ConnectionString,
 				config.EnableConnectionStringValidation,
 				reporter);
 
-			DataverseMetadataConverter dataConverter = new(dataverseConnector,
-				config.ThrowOnEntityNotFound,
-				config.Entities,
-				reporter);
+			ui.Run(() => Generate(config, dataverseConnector, reporter));
 
-			MappingEntity[] data = dataConverter.GetMappedEntities();
-
-			DataverseCustomApiConverter customApiConverter = new(dataverseConnector, config.CustomApis, reporter);
-			CustomApiModel[] customApis = customApiConverter.GetCustomApis();
-
-			Context generatorContext = new()
-			{
-				Namespace = config.Namespace,
-				Entities = data,
-				CustomApis = customApis
-			};
-
-			switch (config.TemplateEngine.Name)
-			{
-				case "scriban":
-					ScribanRun(config, generatorContext, reporter);
-
-					break;
-
-				default:
-					reporter.Log(LogLevel.Warning, $@"Unsupported generator {config.TemplateEngine}, run scriban");
-					ScribanRun(config, generatorContext, reporter);
-
-					break;
-			}
+			PerformanceReport report = reporter.Build();
+			SummaryRenderer.Render(console, theme, report, logPath);
+			fileLog?.Log(LogLevel.Info, report.ToText());
 
 			return 0;
 		}
 		catch (Exception e)
 		{
-			reporter.Log(LogLevel.Error, e.Message, e);
+			// The console gets the error panel; the log file always gets the full exception.
+			fileLog?.Log(LogLevel.Error, e.Message, e);
+			console.WriteLine();
+			ErrorPanel.Render(console, theme, e, settings.Verbose, logPath);
 
 			return 1;
+		}
+	}
+
+	private static void Generate(ConfigModel config, DataverseConnector dataverseConnector, IGenerationReporter reporter)
+	{
+		DataverseMetadataConverter dataConverter = new(dataverseConnector,
+			config.ThrowOnEntityNotFound,
+			config.Entities,
+			reporter);
+
+		MappingEntity[] data = dataConverter.GetMappedEntities();
+
+		DataverseCustomApiConverter customApiConverter = new(dataverseConnector, config.CustomApis, reporter);
+		CustomApiModel[] customApis = customApiConverter.GetCustomApis();
+
+		Context generatorContext = new()
+		{
+			Namespace = config.Namespace,
+			Entities = data,
+			CustomApis = customApis
+		};
+
+		switch (config.TemplateEngine.Name)
+		{
+			case "scriban":
+				ScribanRun(config, generatorContext, reporter);
+
+				break;
+
+			default:
+				reporter.Log(LogLevel.Warning, $@"Unsupported generator {config.TemplateEngine}, run scriban");
+				ScribanRun(config, generatorContext, reporter);
+
+				break;
 		}
 	}
 
@@ -117,7 +156,8 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 	{
 		if (!File.Exists(path))
 		{
-			throw new FileNotFoundException("Config not found", path);
+			throw new UserFacingException($"Config not found: {path}",
+				"Run `dataversegen init` to create an example config, or pass --config <PATH>.");
 		}
 
 		string json = File.ReadAllText(path);

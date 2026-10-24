@@ -45,7 +45,7 @@ public sealed class FileLogReporter : IGenerationReporter, IDisposable
 		string detail = string.IsNullOrEmpty(result.Detail) ? string.Empty : $" · {result.Detail}";
 
 		Write("ITEM",
-			$"{result.Kind} {result.Name}: {result.Status}{detail} ({result.Elapsed:g}, {result.Files} files, {result.Bytes} bytes)");
+			$"{result.Kind} {result.Name} [{result.Phase}]: {result.Status}{detail} ({result.Elapsed:g}, {result.Files} files, {result.Bytes} bytes)");
 	}
 
 	public void StageCompleted(Stage stage, TimeSpan elapsed)

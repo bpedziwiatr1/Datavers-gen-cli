@@ -13,4 +13,10 @@ public interface IGenerationReporter
 	void ItemCompleted(ItemResult result);
 
 	void StageCompleted(Stage stage, TimeSpan elapsed);
+
+	/// <summary>An item (entity, custom API, output file) is about to be processed; lets the UI show what is in flight.</summary>
+	void ItemStarted(ItemKind kind, ItemPhase phase, string name) { }
+
+	/// <summary>One request to Dataverse finished (used for the performance report).</summary>
+	void RequestCompleted(Stage stage, TimeSpan elapsed) { }
 }

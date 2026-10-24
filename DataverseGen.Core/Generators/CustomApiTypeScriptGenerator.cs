@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
@@ -32,19 +33,34 @@ public static class CustomApiTypeScriptGenerator
 
 		foreach (CustomApiModel customApi in customApis)
 		{
+			reporter.ItemStarted(ItemKind.CustomApi, ItemPhase.Generate, customApi.UniqueName);
+			Stopwatch timer = Stopwatch.StartNew();
+			int files = 1;
 			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.ts");
 			File.WriteAllText(filePath, RenderRequestClass(customApi, template), Encoding.UTF8);
+			long bytes = new FileInfo(filePath).Length;
 			reporter.Log(LogLevel.Debug, $@"Generated custom API: {customApi.UniqueName} -> {filePath}");
 
-			if (customApi.ResponseProperties is not { Length: > 0 })
+			if (customApi.ResponseProperties is { Length: > 0 })
 			{
-				continue;
+				responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(true);
+				string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.ts");
+				File.WriteAllText(responsePath, RenderResponseInterface(customApi, responseTemplate), Encoding.UTF8);
+				files++;
+				bytes += new FileInfo(responsePath).Length;
+				reporter.Log(LogLevel.Debug, $@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
 			}
 
-			responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(true);
-			string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.ts");
-			File.WriteAllText(responsePath, RenderResponseInterface(customApi, responseTemplate), Encoding.UTF8);
-			reporter.Log(LogLevel.Debug, $@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
+			reporter.ItemCompleted(new ItemResult
+			{
+				Kind = ItemKind.CustomApi,
+				Phase = ItemPhase.Generate,
+				Name = customApi.UniqueName,
+				Status = ItemStatus.Ok,
+				Elapsed = timer.Elapsed,
+				Files = files,
+				Bytes = bytes
+			});
 		}
 	}
 

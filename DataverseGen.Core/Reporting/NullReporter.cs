@@ -11,4 +11,8 @@ public sealed class NullReporter : IGenerationReporter
 	public void ItemCompleted(ItemResult result) { }
 
 	public void StageCompleted(Stage stage, TimeSpan elapsed) { }
+
+	public void ItemStarted(ItemKind kind, ItemPhase phase, string name) { }
+
+	public void RequestCompleted(Stage stage, TimeSpan elapsed) { }
 }
