@@ -18,10 +18,11 @@ dotnet test DataverseGen.sln                       # CI runs: dotnet test Datave
 dotnet test DataverseGen.sln --filter "FullyQualifiedName~CustomApiTypeScriptGeneratorTests"   # one class
 dotnet test DataverseGen.sln --filter "Name=WriteCustomApis_CreatesTypeScriptRequestClass"     # one test
 dotnet run --project DataverseGen.Cli              # needs dataversegen.config.json in the CWD and a live Dataverse env
-pwsh -NoProfile -File build.ps1                    # release ZIPs into publish/ (requires dotnet-gitversion on PATH)
+pwsh -NoProfile -File build.ps1                    # release ZIPs + dotnet tool .nupkg into publish/ (requires dotnet-gitversion on PATH)
+dotnet pack DataverseGen.Cli/DataverseGen.Cli.csproj -c Release -p:PlatformTarget=AnyCPU -o publish   # tool package only (command: dataversegen)
 ```
 
-The CLI needs a real console window: `Console.SetWindowSize` throws when output is redirected, and it ends with `Console.ReadKey()`. To smoke-test it, launch it in a separate window (`Start-Process ... -WindowStyle Minimized`) and check it is still alive (waiting for a key). Do not enable assembly trimming on publish — it breaks Newtonsoft JSON deserialization of the config.
+The CLI ships both as a single-file exe (`dotnet publish` in `build.ps1`) and as a dotnet tool (`PackAsTool` in `DataverseGen.Cli.csproj`, PackageId `DataverseGen.Tool`). It only resizes the window and waits for `Console.ReadKey()` when it owns its console window (`GetConsoleProcessList` == 1, i.e. a double-clicked exe); from an existing terminal, or with `--no-pause`, it exits right away. To smoke-test the exe behavior, launch it in a separate window (`Start-Process ... -WindowStyle Minimized`) and check it is still alive (waiting for a key). Do not enable assembly trimming on publish — it breaks Newtonsoft JSON deserialization of the config.
 
 `ScribanGeneratorTests` compares the output of all built-in templates (C#/ts × single/multiple) with files in `Tests/DataverseGen.Core.Tests/Generators/Baselines/`. After an intended template/model change, regenerate them with `DATAVERSEGEN_UPDATE_BASELINES=1` set for `dotnet test` and review the diff. Baselines are excluded from compilation and stored byte-for-byte (`.gitattributes`, mixed LF/CRLF output).
 

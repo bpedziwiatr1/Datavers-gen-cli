@@ -41,7 +41,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-packages-${{ github.ref_name }}
-          path: publish/*.zip
+          path: |
+            publish/*.zip
+            publish/*.nupkg
           if-no-files-found: error
 
       - name: Prepare release metadata
@@ -136,6 +138,7 @@ jobs:
             ''
             "- `DataverseGen-CLI_includedotnet_$($gitv.SemVer).zip`"
             "- `DataverseGen-CLI_nodotnet_$($gitv.SemVer).zip`"
+            "- `DataverseGen.Tool.$($gitv.SemVer).nupkg` (dotnet tool)"
           )
 
           $releaseNotes | Set-Content -Path $notesPath -Encoding utf8
@@ -183,8 +186,8 @@ jobs:
 
           if ($releaseExists) {
             gh release edit $tag --title $title --notes-file $notesPath
-            gh release upload $tag publish/*.zip --clobber
+            gh release upload $tag publish/*.zip publish/*.nupkg --clobber
           }
           else {
-            gh release create $tag publish/*.zip --title $title --notes-file $notesPath --target $env:GITHUB_SHA
+            gh release create $tag publish/*.zip publish/*.nupkg --title $title --notes-file $notesPath --target $env:GITHUB_SHA
           }
