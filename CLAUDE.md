@@ -11,6 +11,16 @@ DataverseGen is a .NET 10 (`net10.0`) Windows CLI that reads Dataverse (Power Pl
 - `Tests/DataverseGen.Core.Tests` — MSTest tests for Core (`InternalsVisibleTo` is set, so `internal` members are testable).
 - `Tests/DataverseGen.Cli.Tests` — MSTest tests for the CLI UI on `Spectre.Console.Testing.TestConsole` (`InternalsVisibleTo` via the csproj).
 
+## Critical Guardrails
+- **Incremental Updates**: Modify only files directly related to the task. Do not touch or rewrite unrelated modules.
+- **Never Assume**: If project context, specifications, or edge cases are unclear, STOP and ask the user. Do not hallucinate placeholder logic.
+- **Test-Driven Delivery**: Every functional change or new feature must include a corresponding unit test.
+- **Style Enforcement**: Match the existing repository formatting exactly. No conversational comments in code.
+
+## Code Patterns (Bad vs. Good)
+- **Bad**: Writing large, deeply nested 200-line functions.
+- **Good**: Splitting logic into pure, single-responsibility functions (max 25 lines).
+
 ## Commands
 
 ```powershell
