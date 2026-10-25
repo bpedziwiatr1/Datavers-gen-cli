@@ -16,6 +16,7 @@
 
 - [ ] `dotnet test DataverseGen.sln`
 - [ ] Release workflow impact checked, if applicable
+- [ ] Wiki updated (or not needed) - see `Wiki-Maintenance` page
 
 ## Release Notes
 
