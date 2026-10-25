@@ -46,18 +46,7 @@ internal static class CustomApiTemplates
 
 	public static string Render(Template template, object view)
 	{
-		ScriptObject scriptObject = new();
-		scriptObject.Import(view);
-
-		TemplateContext context = new()
-		{
-			LoopLimit = 0,
-			RecursiveLimit = 0
-		};
-
-		context.PushGlobal(scriptObject);
-
-		return template.Render(context)
+		return ScribanRenderer.Render(template, view)
 		   .Replace("\r\n", "\n")
 		   .Replace("\n", "\r\n");
 	}
