@@ -7,6 +7,31 @@ namespace DataverseGen.Core.Tests.Metadata;
 [TestClass]
 public class MappingEnumTests
 {
+	[TestMethod]
+	public void Parse_Picklist_MapsDescriptions()
+	{
+		LocalizedLabel text = new("Some text", 1033);
+		PicklistAttributeMetadata attr = new()
+		{
+			SchemaName = "new_Category",
+			Description = new Label(text, new[] { text }),
+			OptionSet = new OptionSetMetadata()
+		};
+		LocalizedLabel first = new("First", 1033);
+		attr.OptionSet.Options.Add(new OptionMetadata(new Label(first, new[] { first }), 1)
+		{
+			Description = new Label(text, new[] { text })
+		});
+		LocalizedLabel second = new("Second", 1033);
+		attr.OptionSet.Options.Add(new OptionMetadata(new Label(second, new[] { second }), 2));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("Some text", result.Description);
+		Assert.AreEqual("Some text", result.Items[0].Description);
+		Assert.IsNull(result.Items[1].Description);
+	}
+
 	// Label(string, int) does NOT set UserLocalizedLabel — must be set explicitly
 	private static OptionMetadata BuildOption(int value, string labelText)
 	{

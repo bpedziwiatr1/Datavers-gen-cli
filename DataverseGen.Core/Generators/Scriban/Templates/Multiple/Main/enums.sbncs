@@ -1,4 +1,6 @@
 {{info.welcome_xml}}
+using System.Runtime.Serialization;
+
 namespace {{ namespace }}
 {
     public partial class {{entity.hybrid_name}}
@@ -6,9 +8,22 @@ namespace {{ namespace }}
         public class Enums
         {
         {{for enm in entity.enums}}
+            {{if enm.description_xml_safe != null && enm.description_xml_safe != ""}}
+            /// <summary>
+            /// {{enm.description_xml_safe}}
+            /// </summary>
+            {{end}}
+            [DataContract]
+            {{info.generated_code_attribute}}
             public enum {{enm.display_name}}
             {
                 {{for item in enm.items}}
+                    {{if item.description_xml_safe != null && item.description_xml_safe != ""}}
+                /// <summary>
+                /// {{item.description_xml_safe}}
+                /// </summary>
+                    {{end}}
+                [EnumMember]
                     {{if item.name != "is" }}
                 {{item.name}} = {{item.value}},
                     {{else}}

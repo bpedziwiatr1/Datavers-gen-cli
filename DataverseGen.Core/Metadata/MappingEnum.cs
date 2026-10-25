@@ -8,6 +8,10 @@ public class MappingEnum
 {
 	public string DisplayName { get; set; }
 
+	public string Description { get; set; }
+
+	public string DescriptionXmlSafe => Description?.XmlEscape();
+
 	public MapperEnumItem[] Items { get; set; }
 
 	public static MappingEnum Parse(object attribute)
@@ -27,6 +31,7 @@ public class MappingEnum
 			DisplayName =
 				MetadataNamingExtensions.GetProperVariableName(
 					MetadataNamingExtensions.GetProperVariableName(pickList.SchemaName)),
+			Description = pickList.Description?.UserLocalizedLabel?.Label,
 			Items =
 				pickList.OptionSet.Options
 				   .Where(p => p.Label?.UserLocalizedLabel != null)
@@ -38,7 +43,8 @@ public class MappingEnum
 							DisplayName = o.Label.UserLocalizedLabel.Label,
 							Value = o.Value ?? 1
 						},
-						Name = MetadataNamingExtensions.GetProperVariableName(o.Label.UserLocalizedLabel.Label)
+						Name = MetadataNamingExtensions.GetProperVariableName(o.Label.UserLocalizedLabel.Label),
+						Description = o.Description?.UserLocalizedLabel?.Label
 					})
 				   .ToArray()
 		};
@@ -55,6 +61,7 @@ public class MappingEnum
 			DisplayName =
 				MetadataNamingExtensions.GetProperVariableName(
 					MetadataNamingExtensions.GetProperVariableName(twoOption.SchemaName)),
+			Description = twoOption.Description?.UserLocalizedLabel?.Label,
 			Items = new MapperEnumItem[2]
 		};
 
@@ -100,7 +107,8 @@ public class MappingEnum
 				DisplayName = label,
 				Value = (int)option.Value
 			},
-			Name = MetadataNamingExtensions.GetProperVariableName(label)
+			Name = MetadataNamingExtensions.GetProperVariableName(label),
+			Description = option.Description?.UserLocalizedLabel?.Label
 		};
 	}
 }
@@ -111,6 +119,10 @@ public class MapperEnumItem
 	public CrmPicklistAttribute Attribute { get; set; }
 
 	public string Name { get; set; }
+
+	public string Description { get; set; }
+
+	public string DescriptionXmlSafe => Description?.XmlEscape();
 
 	public int Value => Attribute.Value;
 }

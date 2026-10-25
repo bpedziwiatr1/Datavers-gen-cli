@@ -16,6 +16,14 @@ public class ConfigModelTests
 	}
 
 	[TestMethod]
+	public void ConfigModel_ClearOutputDirectory_DefaultsToTrue()
+	{
+		Assert.IsTrue(new ConfigModel().ClearOutputDirectory);
+		Assert.IsTrue(Newtonsoft.Json.JsonConvert.DeserializeObject<ConfigModel>("{}")!.ClearOutputDirectory);
+		Assert.IsFalse(Newtonsoft.Json.JsonConvert.DeserializeObject<ConfigModel>("{\"ClearOutputDirectory\":false}")!.ClearOutputDirectory);
+	}
+
+	[TestMethod]
 	public void ConfigModel_AllPropertiesAreSettable()
 	{
 		var model = new ConfigModel
