@@ -256,24 +256,55 @@ namespace Test.Dataverse
 		[System.CodeDom.Compiler.GeneratedCode("DataverseGen-Cli","<version>")]
 	 	public class Enums
 		{
+						/// <summary>
+						/// Category description
+						/// </summary>
+					[DataContract]
+					[System.CodeDom.Compiler.GeneratedCode("DataverseGen-Cli","<version>")]
 					public enum new_Category
 					{
+								[EnumMember]
 								Internal = 100000000,
+								/// <summary>
+								/// Project done for a customer
+								/// </summary>
+								[EnumMember]
 								Customer = 100000001,
 					}
+						/// <summary>
+						/// Is Active description
+						/// </summary>
+					[DataContract]
+					[System.CodeDom.Compiler.GeneratedCode("DataverseGen-Cli","<version>")]
 					public enum new_IsActive
 					{
+								[EnumMember]
 								Yes = 1,
+								[EnumMember]
 								No = 0,
 					}
+						/// <summary>
+						/// Status description
+						/// </summary>
+					[DataContract]
+					[System.CodeDom.Compiler.GeneratedCode("DataverseGen-Cli","<version>")]
 					public enum statecode
 					{
+								[EnumMember]
 								Active = 0,
+								[EnumMember]
 								Inactive = 1,
 					}
+						/// <summary>
+						/// Status Reason description
+						/// </summary>
+					[DataContract]
+					[System.CodeDom.Compiler.GeneratedCode("DataverseGen-Cli","<version>")]
 					public enum statuscode
 					{
+								[EnumMember]
 								Active = 1,
+								[EnumMember]
 								Inactive = 2,
 					}
 		}

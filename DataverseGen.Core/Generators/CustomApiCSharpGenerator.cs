@@ -26,7 +26,8 @@ public static class CustomApiCSharpGenerator
 		Template responseTemplate = null,
 		IGenerationReporter reporter = null,
 		int degreeOfParallelism = 1,
-		CancellationToken cancellationToken = default)
+		CancellationToken cancellationToken = default,
+		Action<string> onFileWritten = null)
 	{
 		if (customApis == null)
 		{
@@ -55,6 +56,8 @@ public static class CustomApiCSharpGenerator
 			int files = 1;
 			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.cs");
 			File.WriteAllText(filePath, RenderRequestClass(namespaceName, customApi, template), Encoding.UTF8);
+			onFileWritten?.Invoke(filePath);
+			onFileWritten?.Invoke(filePath);
 			long bytes = new FileInfo(filePath).Length;
 			reporter.Log(LogLevel.Debug, $@"Generated custom API: {customApi.UniqueName} -> {filePath}");
 
@@ -62,6 +65,8 @@ public static class CustomApiCSharpGenerator
 			{
 				string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.cs");
 				File.WriteAllText(responsePath, RenderResponseClass(namespaceName, customApi, responseTemplate), Encoding.UTF8);
+				onFileWritten?.Invoke(responsePath);
+				onFileWritten?.Invoke(responsePath);
 				files++;
 				bytes += new FileInfo(responsePath).Length;
 				reporter.Log(LogLevel.Debug, $@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");

@@ -49,6 +49,10 @@ public class ConfigModel
 
 	/// <summary>Multi-file output only: write entity files as <c>&lt;name&gt;.cs</c> / <c>&lt;name&gt;.attributes.ts</c> instead of <c>&lt;name&gt;.entity.cs|ts</c>.</summary>
 	public bool LegacyEntityFileNames { get; set; }
+	[JsonProperty]
+
+	/// <summary>Remove previously generated files (marked <c>&lt;auto-generated&gt;</c>) from the output folders that were not written in this run. Default: <c>true</c>.</summary>
+	public bool ClearOutputDirectory { get; set; } = true;
 }
 
 [Serializable]

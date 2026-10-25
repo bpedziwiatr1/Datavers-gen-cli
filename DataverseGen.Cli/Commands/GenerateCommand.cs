@@ -38,6 +38,10 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 		[Description("Number of concurrent Dataverse requests / file writes. Default: the server's recommendation, 1-8. 1 = sequential.")]
 		public int? Parallel { get; init; }
 
+		[CommandOption("--no-clear")]
+		[Description("Do not remove previously generated files that were not written in this run (overrides ClearOutputDirectory).")]
+		public bool NoClear { get; init; }
+
 		public override ValidationResult Validate()
 		{
 			return Parallel is < 1
@@ -126,6 +130,12 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 			// prompts and live rendering cannot overlap.
 			ConfigModel config = GetConfig(settings.ConfigPath);
 			ConfigValidation.Validate(config);
+
+			if (settings.NoClear)
+			{
+				config.ClearOutputDirectory = false;
+			}
+
 			DataverseConnector dataverseConnector = new(config.ConnectionString,
 				config.EnableConnectionStringValidation,
 				reporter);
@@ -301,7 +311,8 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 			config.CustomApiOutDirectory,
 			config.LegacyEntityFileNames,
 			reporter,
-			parallelism);
+			parallelism,
+			config.ClearOutputDirectory);
 
 		return scribanGenerator.GenerateTemplateAsync(cancellationToken);
 	}
