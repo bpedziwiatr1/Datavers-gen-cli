@@ -8,6 +8,7 @@
   "CustomApiOutDirectory": "out-crm/customapi", // optional, default <entities dir>/customapi
   "LegacyEntityFileNames": false, // optional, true = <name>.cs / <name>.attributes.ts instead of <name>.entity.cs|ts
   "ClearOutputDirectory": true, // optional, default true = remove stale generated files from the output folders
+  "PreserveOptionSetLabels": false, // optional, default false = TypeScript enum keys use the exact CRM option labels (quoted when needed)
   "TemplateName": "Main",
   "EnableConnectionStringValidation": true, // optional
   "ThrowOnEntityNotFound": true, // optional

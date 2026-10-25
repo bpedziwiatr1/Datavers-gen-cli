@@ -36,4 +36,6 @@ public class GeneratorInfo
 	public string GeneratedCodeAttribute { get; }
 
 	public string WelcomeXml { get; }
+
+	public bool PreserveOptionSetLabels { get; set; }
 }
