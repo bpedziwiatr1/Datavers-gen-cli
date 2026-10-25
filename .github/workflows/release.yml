@@ -54,7 +54,7 @@ jobs:
           $tag = "v$($gitv.SemVer)"
           $title = "Release $tag"
           $notesPath = Join-Path $env:GITHUB_WORKSPACE 'release-notes.md'
-          $previousTag = git describe --tags --abbrev=0 --match "v*" 2>$null
+          $previousTag = git describe --tags --abbrev=0 --match "[0-9]*" --match "v[0-9]*" 2>$null
           $commitRange = if ($previousTag) { "$previousTag..HEAD" } else { "HEAD" }
           $releaseDate = (Get-Date).ToString('yyyy-MM-dd')
           $compareUrl = if ($previousTag) {
@@ -117,6 +117,10 @@ jobs:
             $sectionLines.Add('')
           }
 
+          # A backtick is PowerShell's escape character, so markdown code spans use a variable.
+          $bt = [char]96
+          $prevTagText = if ($previousTag) { $previousTag } else { 'none' }
+
           $releaseNotes = @(
             '# Release Notes'
             ''
@@ -124,21 +128,21 @@ jobs:
             ''
             '### Summary'
             ''
-            "- Release branch: `$env:GITHUB_REF_NAME`"
-            "- Version: `$($gitv.FullSemVer)`"
-            "- SemVer: `$($gitv.SemVer)`"
-            "- Commit: `$($gitv.Sha)`"
-            "- Base tag: `$($previousTag ?? 'none')`"
-            "- Commit range: `$commitRange`"
+            "- Release branch: $bt$($env:GITHUB_REF_NAME)$bt"
+            "- Version: $bt$($gitv.FullSemVer)$bt"
+            "- SemVer: $bt$($gitv.SemVer)$bt"
+            "- Commit: $bt$($gitv.Sha)$bt"
+            "- Base tag: $bt$($prevTagText)$bt"
+            "- Commit range: $bt$($commitRange)$bt"
             "- Compare: [$compareUrl]($compareUrl)"
             ''
           ) + $sectionLines + @(
             ''
             '## Packages'
             ''
-            "- `DataverseGen-CLI_includedotnet_$($gitv.SemVer).zip`"
-            "- `DataverseGen-CLI_nodotnet_$($gitv.SemVer).zip`"
-            "- `DataverseGen.Tool.$($gitv.SemVer).nupkg` (dotnet tool)"
+            "- $($bt)DataverseGen-CLI_includedotnet_$($gitv.SemVer).zip$bt"
+            "- $($bt)DataverseGen-CLI_nodotnet_$($gitv.SemVer).zip$bt"
+            "- $($bt)DataverseGen.Tool.$($gitv.SemVer).nupkg$bt (dotnet tool)"
           )
 
           $releaseNotes | Set-Content -Path $notesPath -Encoding utf8
