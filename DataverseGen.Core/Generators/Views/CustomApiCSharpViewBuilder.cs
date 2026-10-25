@@ -125,7 +125,7 @@ internal static class CustomApiCSharpViewBuilder
 			return sanitized;
 		}
 
-		return ToPascalCase(sanitized);
+		return MetadataNamingExtensions.ToPascalCase(sanitized);
 	}
 
 	private static string GetParameterName(CustomApiParameterModel parameter)
@@ -152,36 +152,6 @@ internal static class CustomApiCSharpViewBuilder
 		return parameter.IsOptional && ValueTypeNames.Contains(typeName)
 			? $"{typeName}?"
 			: typeName;
-	}
-
-	private static string ToPascalCase(string value)
-	{
-		if (string.IsNullOrWhiteSpace(value))
-		{
-			return string.Empty;
-		}
-
-		char[] separators = [' ', '_', '-', '.', '/', '\\'];
-		string[] parts = value.Split(separators, StringSplitOptions.RemoveEmptyEntries);
-		StringBuilder builder = new();
-
-		for (int i = 0; i < parts.Length; i++)
-		{
-			string part = parts[i].Trim();
-
-			if (part.Length == 0)
-			{
-				continue;
-			}
-
-			builder.Append(char.ToUpperInvariant(part[0]));
-			if (part.Length > 1)
-			{
-				builder.Append(part[1..]);
-			}
-		}
-
-		return builder.ToString();
 	}
 
 	private static bool IsCSharpKeyword(string value)

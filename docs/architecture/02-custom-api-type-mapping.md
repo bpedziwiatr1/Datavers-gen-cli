@@ -1,6 +1,6 @@
 # 02 Custom API type-mapping module
 
-- Status: Open
+- Status: Done
 - Strength: Strong
 
 ## Files
@@ -42,4 +42,10 @@ Deleting the two normalizers would force the same tables into both generators, s
 
 ## Decision log
 
-(empty)
+- Added `CustomApiTypeMapper` (`DataverseGen.Core/DataConverter`): one exact-match table for requests and responses; the substring normalizers were removed.
+- Request types fixed: EntityCollection, Picklist, StringArray, Money, Float now map as on responses. `Entity` stays `EntityReference` on requests (unchanged behaviour).
+- `ToPascalCase` moved to `MetadataNamingExtensions` (one copy, unused `capitalizeFirstWord` dropped).
+- `CustomApiParameterModel` keeps its four derived fields; the converter is the single producer.
+- Baselines `customapi-*` unchanged (they use pre-normalized models).
+- Not done: bound-entity literals in the two view builders still duplicate the mapping; raw numeric type codes still fall back to `string`.
+- Corrections to this doc: `CustomApiCSharpGenerator.cs` no longer exists; `MetadataNamingExtensions` lives in `Extensions/`; Money on requests used to map to `decimal`.
