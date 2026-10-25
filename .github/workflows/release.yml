@@ -37,10 +37,18 @@ jobs:
         shell: pwsh
         run: .\build.ps1
 
+      - name: Compute artifact name
+        id: artifact_meta
+        shell: pwsh
+        run: |
+          # upload-artifact@v4 rejects '/' in names, and release branches look like release/x.y.z.
+          $name = "release-packages-$($env:GITHUB_REF_NAME -replace '[/\\:*?"<>|]', '-')"
+          "name=$name" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-packages-${{ github.ref_name }}
+          name: ${{ steps.artifact_meta.outputs.name }}
           path: |
             publish/*.zip
             publish/*.nupkg
