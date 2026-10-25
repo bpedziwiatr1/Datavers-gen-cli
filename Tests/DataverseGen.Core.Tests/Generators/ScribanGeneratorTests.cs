@@ -112,9 +112,21 @@ public class ScribanGeneratorTests
 			string expected = File.ReadAllText(Path.Combine(baselineDirectory, fileName));
 			Assert.AreEqual(expected, actual[fileName], $"Generated file '{fileName}' differs from baseline.");
 		}
+
+		// Parallel generation must produce exactly the same files.
+		Dictionary<string, string> parallel = Generate(type, isSingleOutput, degreeOfParallelism: 4);
+
+		foreach (string fileName in expectedFiles)
+		{
+			Assert.AreEqual(actual[fileName], parallel[fileName], $"Parallel output of '{fileName}' differs from baseline.");
+		}
 	}
 
-	private static Dictionary<string, string> Generate(string type, bool isSingleOutput, bool legacyEntityFileNames = false)
+	private static Dictionary<string, string> Generate(
+		string type,
+		bool isSingleOutput,
+		bool legacyEntityFileNames = false,
+		int degreeOfParallelism = 1)
 	{
 		string originalDirectory = Directory.GetCurrentDirectory();
 		string tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -144,7 +156,8 @@ public class ScribanGeneratorTests
 					IsSingleOutput = isSingleOutput
 				},
 				null,
-				legacyEntityFileNames);
+				legacyEntityFileNames,
+				degreeOfParallelism: degreeOfParallelism);
 
 			generator.GenerateTemplate();
 
@@ -171,7 +184,7 @@ public class ScribanGeneratorTests
 	}
 
 	// DataverseMetadataConverter resolves ToEntity across the selected entities; all test relationships are self-referenced.
-	private static void LinkSelfReferencedRelationships(MappingEntity entity)
+	internal static void LinkSelfReferencedRelationships(MappingEntity entity)
 	{
 		foreach (MappingRelationship1N relationship in entity.RelationshipsOneToMany)
 		{
@@ -194,7 +207,7 @@ public class ScribanGeneratorTests
 		return Path.GetDirectoryName(path)!;
 	}
 
-	private static EntityMetadata BuildProjectEntity()
+	internal static EntityMetadata BuildProjectEntity()
 	{
 		EntityMetadata entity = new()
 		{

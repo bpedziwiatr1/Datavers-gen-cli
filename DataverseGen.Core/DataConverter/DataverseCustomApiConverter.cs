@@ -3,9 +3,10 @@ using System.Globalization;
 using System.Text;
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.Extensions;
+using DataverseGen.Core.Reporting;
+using Microsoft.PowerPlatform.Dataverse.Client;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
-using static DataverseGen.Core.ColorConsole;
 
 namespace DataverseGen.Core.DataConverter;
 
@@ -16,17 +17,23 @@ public class DataverseCustomApiConverter
 	private const string CustomApiResponsePropertyTableName = "customapiresponseproperty";
 
 	private readonly DataverseConnector _dataverseConnector;
+	private readonly int _degreeOfParallelism;
+	private readonly IGenerationReporter _reporter;
 	private readonly string[] _selectedCustomApis;
 
 	public DataverseCustomApiConverter(
 		DataverseConnector dataverseConnector,
-		string[] selectedCustomApis)
+		string[] selectedCustomApis,
+		IGenerationReporter reporter = null,
+		int degreeOfParallelism = 1)
 	{
 		_dataverseConnector = dataverseConnector;
 		_selectedCustomApis = selectedCustomApis ?? Array.Empty<string>();
+		_reporter = reporter ?? NullReporter.Instance;
+		_degreeOfParallelism = Math.Max(1, degreeOfParallelism);
 		if (HasSelection(_selectedCustomApis))
 		{
-			WriteInfo($@"Selected custom APIs: {string.Join(", ", _selectedCustomApis)}");
+			_reporter.Log(LogLevel.Debug, $@"Selected custom APIs: {string.Join(", ", _selectedCustomApis)}");
 		}
 	}
 
@@ -37,29 +44,46 @@ public class DataverseCustomApiConverter
 
 	public CustomApiModel[] GetCustomApis()
 	{
+		return GetCustomApisAsync(CancellationToken.None).GetAwaiter().GetResult();
+	}
+
+	public async Task<CustomApiModel[]> GetCustomApisAsync(CancellationToken cancellationToken = default)
+	{
 		if (!HasSelection(_selectedCustomApis))
 		{
-			WriteWarning(@"No custom APIs configured in 'CustomApis' - skipping custom API generation");
+			_reporter.Log(LogLevel.Warning, @"No custom APIs configured in 'CustomApis' - skipping custom API generation");
 
 			return Array.Empty<CustomApiModel>();
 		}
 
 		Stopwatch stopper = Stopwatch.StartNew();
-		WriteInfo(@"Loading custom APIs");
+		_reporter.StageStarted(Stage.CustomApis,
+			_selectedCustomApis.Count(name => !string.IsNullOrWhiteSpace(name)));
 
-		List<Entity> customApiEntities = RetrieveCustomApiEntities();
-		List<Entity> selectedCustomApiEntities = FilterCustomApiEntities(customApiEntities, _selectedCustomApis);
+		// The three tables are independent, so they are queried concurrently (each on its own cloned client).
+		using ServiceClientPool pool = _dataverseConnector.CreatePool(_degreeOfParallelism);
+		using SemaphoreSlim gate = new(_degreeOfParallelism);
+		Task<List<Entity>> customApiTask = RetrieveAsync(pool, gate, CustomApiTableName, "custom APIs", cancellationToken);
+		Task<List<Entity>> requestParameterTask =
+			RetrieveAsync(pool, gate, CustomApiRequestParameterTableName, CustomApiRequestParameterTableName, cancellationToken);
+		Task<List<Entity>> responsePropertyTask =
+			RetrieveAsync(pool, gate, CustomApiResponsePropertyTableName, CustomApiResponsePropertyTableName, cancellationToken);
+		await Task.WhenAll(customApiTask, requestParameterTask, responsePropertyTask);
+
+		List<Entity> customApiEntities = customApiTask.Result;
+		List<Entity> requestParameterEntities = requestParameterTask.Result;
+		List<Entity> responsePropertyEntities = responsePropertyTask.Result;
+		List<Entity> selectedCustomApiEntities =
+			FilterCustomApiEntities(customApiEntities, _selectedCustomApis, _reporter);
 		foreach (Entity selectedCustomApi in selectedCustomApiEntities)
 		{
-			WriteSuccess($@"Found custom API: {GetString(selectedCustomApi, "uniquename")}, id: {GetEntityId(selectedCustomApi)}");
+			_reporter.Log(LogLevel.Debug,
+				$@"Found custom API: {GetString(selectedCustomApi, "uniquename")}, id: {GetEntityId(selectedCustomApi)}");
 		}
 
 		HashSet<string> selectedCustomApiIds = new(
 			selectedCustomApiEntities.Select(GetEntityId),
 			StringComparer.InvariantCultureIgnoreCase);
-
-		List<Entity> requestParameterEntities = RetrieveRelatedEntities(CustomApiRequestParameterTableName);
-		List<Entity> responsePropertyEntities = RetrieveRelatedEntities(CustomApiResponsePropertyTableName);
 
 		Dictionary<string, List<CustomApiParameterModel>> requestParametersByApiId =
 			GroupParametersByApiId(requestParameterEntities, selectedCustomApiIds, false);
@@ -73,16 +97,34 @@ public class DataverseCustomApiConverter
 		   .OrderBy(api => api.RequestClassName)
 		   .ToList();
 
+		// The three queries are shared by all APIs, so every API gets an equal share of the retrieval time.
+		TimeSpan retrieveShare = result.Count > 0 ? stopper.Elapsed / result.Count : TimeSpan.Zero;
+
+		foreach (CustomApiModel api in result)
+		{
+			_reporter.ItemCompleted(new ItemResult
+			{
+				Kind = ItemKind.CustomApi,
+				Name = api.UniqueName,
+				Status = ItemStatus.Ok,
+				Detail = $"{api.RequestParameters.Length} parameters · {api.ResponseProperties.Length} response properties",
+				Elapsed = retrieveShare
+			});
+		}
+
 		stopper.Stop();
-		WriteInfo($@"Loaded custom APIs in: {stopper.Elapsed:g}");
+		_reporter.StageCompleted(Stage.CustomApis, stopper.Elapsed);
 
 		return result.ToArray();
 	}
 
 	internal static List<Entity> FilterCustomApiEntities(
 		IReadOnlyCollection<Entity> customApiEntities,
-		IReadOnlyCollection<string> selectedCustomApis)
+		IReadOnlyCollection<string> selectedCustomApis,
+		IGenerationReporter reporter = null)
 	{
+		reporter ??= NullReporter.Instance;
+
 		if (!HasSelection(selectedCustomApis))
 		{
 			return new List<Entity>();
@@ -115,7 +157,12 @@ public class DataverseCustomApiConverter
 		{
 			if (!availableCustomApis.TryGetValue(selectedCustomApi, out Entity customApiEntity))
 			{
-				WriteWarning($@"Custom API not found: {selectedCustomApi}");
+				reporter.ItemCompleted(new ItemResult
+				{
+					Kind = ItemKind.CustomApi,
+					Name = selectedCustomApi,
+					Status = ItemStatus.NotFound
+				});
 				continue;
 			}
 
@@ -160,28 +207,42 @@ public class DataverseCustomApiConverter
 		return grouped;
 	}
 
-	private List<Entity> RetrieveCustomApiEntities()
+	private async Task<List<Entity>> RetrieveAsync(
+		ServiceClientPool pool,
+		SemaphoreSlim gate,
+		string tableName,
+		string description,
+		CancellationToken cancellationToken)
 	{
-		QueryExpression query = new(CustomApiTableName)
+		await gate.WaitAsync(cancellationToken);
+
+		try
 		{
-			ColumnSet = new ColumnSet(true)
-		};
+			QueryExpression query = new(tableName)
+			{
+				ColumnSet = new ColumnSet(true)
+			};
 
-		EntityCollection response = _dataverseConnector.OrganizationService.RetrieveMultiple(query);
-		WriteInfo($@"Found custom APIs: {response.Entities.Count}");
-		return response.Entities.ToList();
-	}
+			ServiceClient client = pool.Rent();
 
-	private List<Entity> RetrieveRelatedEntities(string tableName)
-	{
-		QueryExpression query = new(tableName)
+			try
+			{
+				Stopwatch requestTimer = Stopwatch.StartNew();
+				EntityCollection response = await client.RetrieveMultipleAsync(query, cancellationToken);
+				_reporter.RequestCompleted(Stage.CustomApis, requestTimer.Elapsed);
+				_reporter.Log(LogLevel.Debug, $@"Found {description}: {response.Entities.Count}");
+
+				return response.Entities.ToList();
+			}
+			finally
+			{
+				pool.Return(client);
+			}
+		}
+		finally
 		{
-			ColumnSet = new ColumnSet(true)
-		};
-
-		EntityCollection response = _dataverseConnector.OrganizationService.RetrieveMultiple(query);
-		WriteInfo($@"Found {tableName}: {response.Entities.Count}");
-		return response.Entities.ToList();
+			gate.Release();
+		}
 	}
 
 	private static CustomApiModel ParseCustomApi(

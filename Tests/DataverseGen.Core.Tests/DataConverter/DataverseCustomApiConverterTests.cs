@@ -1,5 +1,6 @@
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.DataConverter;
+using DataverseGen.Core.Reporting;
 using Microsoft.Xrm.Sdk;
 using System.Reflection;
 
@@ -60,6 +61,24 @@ public class DataverseCustomApiConverterTests
 
 		Assert.AreEqual(0, DataverseCustomApiConverter.FilterCustomApiEntities(new[] { first }, null!).Count);
 		Assert.AreEqual(0, DataverseCustomApiConverter.FilterCustomApiEntities(new[] { first }, new[] { " ", "" }).Count);
+	}
+
+	[TestMethod]
+	public void FilterCustomApiEntities_ReportsMissingApiThroughReporter()
+	{
+		Entity first = CreateCustomApiEntity("11111111-1111-1111-1111-111111111111", "newfirstapi");
+		RecordingReporter reporter = new();
+
+		List<Entity> filtered = DataverseCustomApiConverter.FilterCustomApiEntities(
+			new[] { first },
+			new[] { "newfirstapi", "missingapi" },
+			reporter);
+
+		Assert.AreEqual(1, filtered.Count);
+		Assert.AreEqual(1, reporter.Items.Count);
+		Assert.AreEqual(ItemKind.CustomApi, reporter.Items[0].Kind);
+		Assert.AreEqual("missingapi", reporter.Items[0].Name);
+		Assert.AreEqual(ItemStatus.NotFound, reporter.Items[0].Status);
 	}
 
 	[TestMethod]

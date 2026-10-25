@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using DataverseGen.Core.Reporting;
 using Scriban;
 
 namespace DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
@@ -11,11 +12,13 @@ public abstract class MultipleFileTemplateBase
 	private string _entityTemplateFilePath;
 	private string _enumsTemplateFilePath;
 	protected string DirectoryPath;
+	protected IGenerationReporter Reporter;
 
-	protected MultipleFileTemplateBase(string templateName, string templateDirName)
+	protected MultipleFileTemplateBase(string templateName, string templateDirName, IGenerationReporter reporter = null)
 	{
 		_templateName = templateName;
 		_templateDirName = templateDirName;
+		Reporter = reporter ?? NullReporter.Instance;
 	}
 
 	internal Template EntityTemplate { get; set; }
@@ -37,7 +40,7 @@ public abstract class MultipleFileTemplateBase
 	protected virtual void CheckFiles()
 	{
 		DirectoryPath = $"{Directory.GetCurrentDirectory()}\\{_templateDirName}\\{_templateName}\\";
-		Console.WriteLine($@"Loading templates from  path: {DirectoryPath}");
+		Reporter.Log(LogLevel.Debug, $@"Loading templates from path: {DirectoryPath}");
 
 		if (!Directory.Exists(DirectoryPath))
 		{

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using DataverseGen.Core.Scaffolding;
+using DataverseGen.Cli.Ui;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -37,6 +38,8 @@ internal sealed class TemplatesCommand : Command<TemplatesCommand.Settings>
 
 	public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken)
 	{
+		Banner.Render(AnsiConsole.Console, Theme.For(AnsiConsole.Console), Banner.CreateInfo());
+
 		bool isTypeScript = settings.Type == "ts";
 		string name = settings.Name ?? (isTypeScript ? "MyTsTemplate" : "MyTemplate");
 

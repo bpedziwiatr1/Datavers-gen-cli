@@ -1,4 +1,5 @@
 using System.Text;
+using DataverseGen.Core.Reporting;
 using Scriban;
 using Scriban.Runtime;
 
@@ -15,14 +16,22 @@ internal static class CustomApiTemplates
 
 	private const string ResponseTemplateFileName = "customapi.response.sbncs";
 
-	public static Template Load(string templateName, string templateDirName, bool isTypeScript)
+	public static Template Load(
+		string templateName,
+		string templateDirName,
+		bool isTypeScript,
+		IGenerationReporter reporter = null)
 	{
-		return Load(templateName, templateDirName, isTypeScript, false);
+		return Load(templateName, templateDirName, isTypeScript, false, reporter);
 	}
 
-	public static Template LoadResponse(string templateName, string templateDirName, bool isTypeScript)
+	public static Template LoadResponse(
+		string templateName,
+		string templateDirName,
+		bool isTypeScript,
+		IGenerationReporter reporter = null)
 	{
-		return Load(templateName, templateDirName, isTypeScript, true);
+		return Load(templateName, templateDirName, isTypeScript, true, reporter);
 	}
 
 	public static Template LoadBuiltIn(bool isTypeScript)
@@ -53,8 +62,15 @@ internal static class CustomApiTemplates
 		   .Replace("\n", "\r\n");
 	}
 
-	private static Template Load(string templateName, string templateDirName, bool isTypeScript, bool isResponse)
+	private static Template Load(
+		string templateName,
+		string templateDirName,
+		bool isTypeScript,
+		bool isResponse,
+		IGenerationReporter reporter)
 	{
+		reporter ??= NullReporter.Instance;
+
 		if (!string.Equals(templateName, RestrictedTemplateMain, StringComparison.InvariantCultureIgnoreCase))
 		{
 			string fileName = isResponse ? ResponseTemplateFileName : TemplateFileName;
@@ -62,12 +78,13 @@ internal static class CustomApiTemplates
 
 			if (File.Exists(path))
 			{
-				Console.WriteLine($@"Loading custom API template from path: {path}");
+				reporter.Log(LogLevel.Debug, $@"Loading custom API template from path: {path}");
 
 				return Parse(File.ReadAllText(path), path);
 			}
 
-			Console.WriteLine($@"Template '{templateName}' has no {fileName}, using the built-in custom API template");
+			reporter.Log(LogLevel.Debug,
+				$@"Template '{templateName}' has no {fileName}, using the built-in custom API template");
 		}
 
 		return LoadBuiltIn(isTypeScript, isResponse);

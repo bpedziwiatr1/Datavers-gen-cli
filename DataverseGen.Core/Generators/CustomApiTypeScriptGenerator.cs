@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Text;
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
+using DataverseGen.Core.Reporting;
 using Scriban;
 
 namespace DataverseGen.Core.Generators;
@@ -16,32 +18,61 @@ public static class CustomApiTypeScriptGenerator
 		string outPath,
 		IEnumerable<CustomApiModel> customApis,
 		Template template,
-		Template responseTemplate = null)
+		Template responseTemplate = null,
+		IGenerationReporter reporter = null,
+		int degreeOfParallelism = 1,
+		CancellationToken cancellationToken = default)
 	{
 		if (customApis == null)
 		{
 			return;
 		}
 
+		reporter ??= NullReporter.Instance;
+
 		string customApiDirectory = outPath;
 		Directory.CreateDirectory(customApiDirectory);
 
-		foreach (CustomApiModel customApi in customApis)
+		CustomApiModel[] apis = customApis.ToArray();
+		bool anyResponse = apis.Any(api => api.ResponseProperties is { Length: > 0 });
+		responseTemplate ??= anyResponse ? CustomApiTemplates.LoadBuiltInResponse(true) : null;
+
+		Parallel.ForEach(apis,
+			new ParallelOptions
+			{
+				MaxDegreeOfParallelism = Math.Max(1, degreeOfParallelism),
+				CancellationToken = cancellationToken
+			},
+			customApi =>
 		{
+			reporter.ItemStarted(ItemKind.CustomApi, ItemPhase.Generate, customApi.UniqueName);
+			Stopwatch timer = Stopwatch.StartNew();
+			int files = 1;
 			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.ts");
 			File.WriteAllText(filePath, RenderRequestClass(customApi, template), Encoding.UTF8);
-			Console.WriteLine($@"Generated custom API: {customApi.UniqueName} -> {filePath}");
+			long bytes = new FileInfo(filePath).Length;
+			reporter.Log(LogLevel.Debug, $@"Generated custom API: {customApi.UniqueName} -> {filePath}");
 
-			if (customApi.ResponseProperties is not { Length: > 0 })
+			if (customApi.ResponseProperties is { Length: > 0 })
 			{
-				continue;
+				string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.ts");
+				File.WriteAllText(responsePath, RenderResponseInterface(customApi, responseTemplate), Encoding.UTF8);
+				files++;
+				bytes += new FileInfo(responsePath).Length;
+				reporter.Log(LogLevel.Debug, $@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
 			}
 
-			responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(true);
-			string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.ts");
-			File.WriteAllText(responsePath, RenderResponseInterface(customApi, responseTemplate), Encoding.UTF8);
-			Console.WriteLine($@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
-		}
+			reporter.ItemCompleted(new ItemResult
+			{
+				Kind = ItemKind.CustomApi,
+				Phase = ItemPhase.Generate,
+				Name = customApi.UniqueName,
+				Status = ItemStatus.Ok,
+				Elapsed = timer.Elapsed,
+				Files = files,
+				Bytes = bytes
+			});
+		});
 	}
 
 	internal static string RenderResponseInterface(CustomApiModel customApi)

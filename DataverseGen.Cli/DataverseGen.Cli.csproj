@@ -32,6 +32,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\DataverseGen.Core\DataverseGen.Core.csproj" />
+      <InternalsVisibleTo Include="DataverseGen.Cli.Tests" />
     </ItemGroup>
 
     <ItemGroup>

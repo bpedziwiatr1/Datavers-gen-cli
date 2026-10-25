@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-DataverseGen is a .NET 10 (`net10.0`) Windows CLI that reads Dataverse (Power Platform) metadata and generates early-bound C# or TypeScript code via Scriban templates. Solution: `DataverseGen.sln` with three projects:
+DataverseGen is a .NET 10 (`net10.0`) Windows CLI that reads Dataverse (Power Platform) metadata and generates early-bound C# or TypeScript code via Scriban templates. Solution: `DataverseGen.sln` with these projects:
 
 - `DataverseGen.Cli` — console entry point (`Program.cs`). Windows-only (uses Windows Credential Manager).
 - `DataverseGen.Core` — config, connection-string validation, metadata loading, generators, templates.
 - `Tests/DataverseGen.Core.Tests` — MSTest tests for Core (`InternalsVisibleTo` is set, so `internal` members are testable).
+- `Tests/DataverseGen.Cli.Tests` — MSTest tests for the CLI UI on `Spectre.Console.Testing.TestConsole` (`InternalsVisibleTo` via the csproj).
 
 ## Commands
 
@@ -37,6 +38,14 @@ Entry point `Program.Main` hosts a Spectre.Console.Cli `CommandApp` (`DataverseG
    - Single output: one embedded template (`Templates/Single/dataversegen-single*.sbncs`) → `XrmServiceContext.cs` or `dataverse.metadata.ts`.
    - Multiple output: per-entity files using `MultipleFileTemplateCsharp` / `MultipleFileTemplateTypescript` (C#: entity, fields, enums + `XrmServiceContext.cs`; TS: attributes, enums, relationships).
    - Afterwards, custom API wrappers are written to `CustomApiOutDirectory` (default `<entities dir>/customapi/`; entities go to `EntitiesOutDirectory`, falling back to `OutDirectory`) as `<classname>.customapi.cs|ts` by `CustomApiCSharpGenerator` / `CustomApiTypeScriptGenerator`. Each file is rendered from the `customapi.sbncs` template (`Multiple/Main` for C#, `Multiple/TS-Main` for ts) over a view model (`CustomApiCSharpView` / `CustomApiTypeScriptView`) built by the generator, which keeps naming/escaping logic in C#. A non-`Main` template set may ship its own optional `customapi.sbncs`; otherwise the built-in one is used (`CustomApiTemplates.Load`). APIs with `ResponseProperties` also get a `<responseclassname>.customapi.cs|ts` file (C# `OrganizationResponse` subclass / TS `interface`) rendered from the optional `customapi.response.sbncs` (`CustomApiTemplates.LoadResponse`) over `CustomApiCSharpResponseView` / `CustomApiTypeScriptResponseView`; response property types use `TryNormalizeCustomApiResponseType` (exact match) before the shared request mapping. Baselines: `Generators/Baselines/customapi-response-*`. Output is not passed through `RemoveEmptyLines`, so layout is controlled by the template (Scriban does not trim lines that only hold a control tag — start loops inline at the end of the previous line). Baselines: `Generators/Baselines/customapi-*`.
+
+### Reporting
+
+Core never writes to the console. All output goes through `IGenerationReporter` (`Core/Reporting`: `Log`, `StageStarted`, `ItemStarted`, `ItemCompleted`, `StageCompleted`); services take it as an optional last constructor/method parameter defaulting to `NullReporter.Instance`. The CLI composes `Ui/SpectreReporter` (live progress bars; plain lines when output is redirected / non-interactive; Debug and stack traces only with `-v|--verbose`) with `FileLogReporter` (`--log [PATH]`, always full detail), wrapped in `PerformanceCollector`, which aggregates durations, request counts and written files into a `PerformanceReport` (rendered by `Ui/SummaryRenderer`, appended as text to the log). Each item is reported once per `ItemPhase` (`Retrieve` by the converters, `Generate` by the generators with `Files`/`Bytes`); `ItemKind.Output` is for files that belong to no single item (single-file output). Call `ItemStarted` before work on an item begins (the live bar shows the names in flight; several when run in parallel) and report Dataverse round trips with `RequestCompleted`. Credential prompts and connection-string validation must run before `SpectreReporter.Run` (live display and prompts cannot overlap). Both sinks mask secrets via `SecretMasker`; never put a raw connection string into a message or exception. Do not call `SetApplicationVersion` on the `CommandApp` (it would register `-v|--version` and clash with `--verbose`).
+
+### Parallelism
+
+`generate -p|--parallel <N>` (default: `ServiceClient.RecommendedDegreesOfParallelism` clamped to 1..8, resolved by `DataverseConnector.ResolveDegreeOfParallelism` after connecting; 1 = sequential). Reporter calls come from worker threads, so every `IGenerationReporter` must be thread-safe. `GenerateCommand` is an `AsyncCommand`: it connects once (`EnsureConnected`), then runs `GetMappedEntitiesAsync` and `GetCustomApisAsync` concurrently (first failure cancels the other) and `ScribanGenerator.GenerateTemplateAsync`. Converters take the degree as an optional last constructor parameter and rent cloned clients from `ServiceClientPool` (DOP 1 uses the shared client). Entity results keep selection order (plus `activityparty` inserted after the first activity entity), so output is deterministic. The generator writes entity files and custom APIs concurrently and `XrmServiceContext.cs` last. Sync wrappers (`GetMappedEntities`, `GetCustomApis`, `GenerateTemplate`) remain for tests. Ctrl+C is wired in `GenerateCommand` (`Console.CancelKeyPress` → token → exit code 130). `ScribanGeneratorTests` also checks DOP 4 against the baselines; `ParallelGenerationTests` covers many entities, one completion per item and cancellation.
 
 ### Templates
 
