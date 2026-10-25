@@ -217,6 +217,7 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 			Entities = data,
 			CustomApis = customApis
 		};
+		generatorContext.Info.PreserveOptionSetLabels = config.PreserveOptionSetLabels;
 
 		switch (config.TemplateEngine.Name)
 		{

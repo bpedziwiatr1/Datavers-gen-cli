@@ -270,6 +270,7 @@ namespace {{ namespace }}
 				/// </summary>
 				{{end}}
 				[EnumMember]
+				[Description("{{item.escaped_label}}")]
 				{{item.name}} = {{item.value}},
 				{{end}}
 			}

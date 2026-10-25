@@ -1,4 +1,6 @@
-﻿using DataverseGen.Core.Extensions;
+﻿using System.Globalization;
+using System.Text.RegularExpressions;
+using DataverseGen.Core.Extensions;
 using Microsoft.Xrm.Sdk.Metadata;
 
 namespace DataverseGen.Core.Metadata;
@@ -44,6 +46,7 @@ public class MappingEnum
 							Value = o.Value ?? 1
 						},
 						Name = MetadataNamingExtensions.GetProperVariableName(o.Label.UserLocalizedLabel.Label),
+						Label = o.Label.UserLocalizedLabel.Label,
 						Description = o.Description?.UserLocalizedLabel?.Label
 					})
 				   .ToArray()
@@ -88,6 +91,26 @@ public class MappingEnum
 				duplicates[enumItem.Name] = 1;
 			}
 		}
+
+		RenameDuplicateTsKeys(enm);
+	}
+
+	private static void RenameDuplicateTsKeys(MappingEnum enm)
+	{
+		Dictionary<string, int> duplicates = new();
+
+		foreach (MapperEnumItem enumItem in enm.Items)
+		{
+			if (duplicates.ContainsKey(enumItem.TsKeyText))
+			{
+				duplicates[enumItem.TsKeyText] += 1;
+				enumItem.TsKeyText = $@"{enumItem.TsKeyText}_{duplicates[enumItem.TsKeyText]}";
+			}
+			else
+			{
+				duplicates[enumItem.TsKeyText] = 1;
+			}
+		}
 	}
 
 	private static MapperEnumItem MapBoolOption(OptionMetadata option)
@@ -108,21 +131,59 @@ public class MappingEnum
 				Value = (int)option.Value
 			},
 			Name = MetadataNamingExtensions.GetProperVariableName(label),
+			Label = label,
 			Description = option.Description?.UserLocalizedLabel?.Label
 		};
 	}
 }
 
 [Serializable]
-public class MapperEnumItem
+public partial class MapperEnumItem
 {
+	private string _tsKeyText;
+
 	public CrmPicklistAttribute Attribute { get; set; }
 
 	public string Name { get; set; }
+
+	public string Label { get; set; }
+
+	public string EscapedLabel => EscapeString(Label);
+
+	public string TsKeyText
+	{
+		get => _tsKeyText ??= BuildTsKeyText(Label, Name);
+		set => _tsKeyText = value;
+	}
+
+	public string TsKey => TsIdentifierRegex().IsMatch(TsKeyText)
+		? TsKeyText
+		: $"\"{EscapeString(TsKeyText)}\"";
 
 	public string Description { get; set; }
 
 	public string DescriptionXmlSafe => Description?.XmlEscape();
 
 	public int Value => Attribute.Value;
+
+	private static string BuildTsKeyText(string label, string fallbackName)
+	{
+		string trimmed = label?.Trim();
+
+		return string.IsNullOrEmpty(trimmed) || double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+			? fallbackName
+			: trimmed;
+	}
+
+	private static string EscapeString(string text)
+	{
+		return text?
+		   .Replace("\\", "\\\\")
+		   .Replace("\"", "\\\"")
+		   .Replace("\r", "\\r")
+		   .Replace("\n", "\\n");
+	}
+
+	[GeneratedRegex("^[A-Za-z_$][A-Za-z0-9_$]*$")]
+	private static partial Regex TsIdentifierRegex();
 }

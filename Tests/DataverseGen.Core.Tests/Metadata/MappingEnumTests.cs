@@ -32,6 +32,128 @@ public class MappingEnumTests
 		Assert.IsNull(result.Items[1].Description);
 	}
 
+	[TestMethod]
+	public void Parse_Picklist_KeepsLabelAndQuotesTsKeyWhenNotIdentifier()
+	{
+		PicklistAttributeMetadata attr = BuildPicklist("new_status", (1, "Potwierdź Zamówienie"), (2, "Done"));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("Potwierdź Zamówienie", result.Items[0].Label);
+		Assert.AreEqual("\"Potwierdź Zamówienie\"", result.Items[0].TsKey);
+		Assert.AreEqual("PotwierdzZamowienie", result.Items[0].Name);
+		Assert.AreEqual("Done", result.Items[1].TsKey);
+	}
+
+	[TestMethod]
+	public void Parse_Picklist_TsKeyFallsBackToNameForNumericOrEmptyLabels()
+	{
+		PicklistAttributeMetadata attr = BuildPicklist("new_status", (1, "10"), (2, "  "));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual(result.Items[0].Name, result.Items[0].TsKey);
+		Assert.AreEqual(result.Items[1].Name, result.Items[1].TsKey);
+	}
+
+	[TestMethod]
+	public void Parse_Picklist_RenamesDuplicateTsKeys()
+	{
+		PicklistAttributeMetadata attr = BuildPicklist("new_status", (1, "A B"), (2, "A B"));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("\"A B\"", result.Items[0].TsKey);
+		Assert.AreEqual("\"A B_2\"", result.Items[1].TsKey);
+	}
+
+	[TestMethod]
+	public void Parse_Picklist_EscapesQuotesInLabel()
+	{
+		PicklistAttributeMetadata attr = BuildPicklist("new_status", (1, "Say \"hi\"\\now"));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("Say \\\"hi\\\"\\\\now", result.Items[0].EscapedLabel);
+		Assert.AreEqual("\"Say \\\"hi\\\"\\\\now\"", result.Items[0].TsKey);
+	}
+
+	[TestMethod]
+	[DataRow("Potwierdź Zamówienie")]
+	[DataRow("Zażółć gęślą jaźń")]
+	[DataRow("Größe & Maße")]
+	[DataRow("Überfällig")]
+	[DataRow("Café Crème")]
+	[DataRow("Привіт")]
+	[DataRow("注文 確認")]
+	public void Parse_Picklist_InternationalLabel_IsKeptVerbatimInLabelAndQuotedTsKey(string label)
+	{
+		PicklistAttributeMetadata attr = BuildPicklist("new_status", (1, label));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual(label, result.Items[0].Label);
+		Assert.AreEqual(label, result.Items[0].EscapedLabel);
+		Assert.AreEqual("\"" + label + "\"", result.Items[0].TsKey);
+	}
+
+	[TestMethod]
+	[DataRow("Łódź")]
+	[DataRow("Straße")]
+	[DataRow("Ünal")]
+	public void Parse_Picklist_NonAsciiSingleWord_IsQuotedBecauseIdentifierRegexIsAscii(string label)
+	{
+		PicklistAttributeMetadata attr = BuildPicklist("new_status", (1, label));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("\"" + label + "\"", result.Items[0].TsKey);
+	}
+
+	[TestMethod]
+	public void Parse_Picklist_LabelsDifferingOnlyByDiacritics_GetDistinctTsKeysAndSuffixedNames()
+	{
+		PicklistAttributeMetadata attr = BuildPicklist("new_status", (1, "Zamówienie"), (2, "Zamowienie"));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("\"Zamówienie\"", result.Items[0].TsKey);
+		Assert.AreEqual("Zamowienie", result.Items[1].TsKey);
+		Assert.AreNotEqual(result.Items[0].Name, result.Items[1].Name);
+	}
+
+	[TestMethod]
+	public void Parse_Picklist_TrimsWhitespaceAroundInternationalLabel()
+	{
+		PicklistAttributeMetadata attr = BuildPicklist("new_status", (1, "  Potwierdź Zamówienie  "));
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("\"Potwierdź Zamówienie\"", result.Items[0].TsKey);
+	}
+
+	[TestMethod]
+	public void Parse_Boolean_InternationalLabels_AreQuoted()
+	{
+		BooleanAttributeMetadata attr = BuildBoolean("new_flag", "Tak, zażółć", "Nein, Größe");
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("\"Tak, zażółć\"", result.Items[0].TsKey);
+		Assert.AreEqual("\"Nein, Größe\"", result.Items[1].TsKey);
+	}
+
+	[TestMethod]
+	public void Parse_Boolean_KeepsLabels()
+	{
+		BooleanAttributeMetadata attr = BuildBoolean("new_flag", "Tak, na pewno", "Nie");
+
+		MappingEnum result = MappingEnum.Parse(attr);
+
+		Assert.AreEqual("Tak, na pewno", result.Items[0].Label);
+		Assert.AreEqual("\"Tak, na pewno\"", result.Items[0].TsKey);
+	}
+
 	// Label(string, int) does NOT set UserLocalizedLabel — must be set explicitly
 	private static OptionMetadata BuildOption(int value, string labelText)
 	{
