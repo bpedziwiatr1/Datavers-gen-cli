@@ -61,3 +61,19 @@ Core never writes to the console. All output goes through `IGenerationReporter` 
 - Tests are MSTest 4: use `Assert.ThrowsExactly<T>` (`ThrowsException` was removed).
 - Commits use Conventional Commit prefixes (`.gitmessage.txt`, PR template): `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `ci`, `build`, `chore`, `style`, `remove`/`delete`/`drop`, `sec`/`security`. The release workflow buckets commit subjects by these prefixes into Keep-a-Changelog sections, so subjects must be specific. Issue numbers are typically scoped, e.g. `feat(#36): ...`.
 - Branching/versioning via GitVersion 6 (`GitVersion.yml`, v6 schema; `build.ps1`/`release.yml` use `SemVer` for ZIP names and tags): tests run on PRs/pushes to `develop`; pushing a `release/x.y.z` branch builds ZIPs, opens a PR to `main`, and publishes a GitHub Release. In Git Bash, pass `MSYS_NO_PATHCONV=1` to `dotnet-gitversion` so `/config`-style switches aren't rewritten into paths.
+
+## Wiki
+
+User documentation lives in the GitHub wiki, a separate repo checked out at `C:\repos\github\Datavers-gen-cli.wiki` (source of truth; README is only an overview). After a user-facing change, update the matching page in the same task and tell the user which wiki files changed. Do not commit or push either repo; the wiki is committed separately with a `docs:` prefix.
+
+| Change | Wiki page |
+|---|---|
+| Config field (`ConfigModel`) | `Configuration.md` |
+| CLI command/option (`DataverseGen.Cli/Commands`) | `CLI-Reference.md` |
+| Template set / model property rename | `Templates.md` |
+| Custom API generation or template variables | `Custom-APIs.md` |
+| Console UI, log, parallelism, performance report | `Output-and-Reporting.md` |
+| Install, packaging, credentials | `Getting-Started.md` |
+| Build, test, architecture, release process | `Development.md` |
+
+New pages must be linked from `Home.md` and `_Sidebar.md`. Process is described in `Wiki-Maintenance.md`. To catch up after several changes, run the `/wiki-sync` skill (`.claude/skills/wiki-sync`).
