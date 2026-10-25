@@ -2,8 +2,11 @@ using DataverseGen.Core.Reporting;
 
 namespace DataverseGen.Core.Tests;
 
+/// <summary>Records every call; safe to use from parallel workers.</summary>
 internal sealed class RecordingReporter : IGenerationReporter
 {
+	private readonly object _lock = new();
+
 	public List<(LogLevel Level, string Message, Exception? Exception)> Logs { get; } = [];
 
 	public List<ItemResult> Items { get; } = [];
@@ -14,21 +17,33 @@ internal sealed class RecordingReporter : IGenerationReporter
 
 	public void Log(LogLevel level, string message, Exception? exception = null)
 	{
-		Logs.Add((level, message, exception));
+		lock (_lock)
+		{
+			Logs.Add((level, message, exception));
+		}
 	}
 
 	public void StageStarted(Stage stage, int total)
 	{
-		Started.Add((stage, total));
+		lock (_lock)
+		{
+			Started.Add((stage, total));
+		}
 	}
 
 	public void ItemCompleted(ItemResult result)
 	{
-		Items.Add(result);
+		lock (_lock)
+		{
+			Items.Add(result);
+		}
 	}
 
 	public void StageCompleted(Stage stage, TimeSpan elapsed)
 	{
-		Completed.Add(stage);
+		lock (_lock)
+		{
+			Completed.Add(stage);
+		}
 	}
 }

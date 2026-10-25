@@ -2,6 +2,7 @@
 using CommunityToolkit.Diagnostics;
 using DataverseGen.Core.Metadata;
 using DataverseGen.Core.Reporting;
+using Microsoft.PowerPlatform.Dataverse.Client;
 using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
 
@@ -12,6 +13,7 @@ public class DataverseMetadataConverter
 	private const string ActivityPartySchemaName = "activityparty";
 	private readonly DataverseConnector _dataverseConnector;
 	private readonly IGenerationReporter _reporter;
+	private readonly int _degreeOfParallelism;
 	private readonly string[] _selectedEntities;
 	private readonly bool _throwOnEntityNotFound;
 
@@ -19,7 +21,8 @@ public class DataverseMetadataConverter
 		DataverseConnector dataverseConnector,
 		bool throwOnEntityNotFound,
 		string[] selectedEntities,
-		IGenerationReporter reporter = null)
+		IGenerationReporter reporter = null,
+		int degreeOfParallelism = 1)
 	{
 		Guard.IsNotNull(selectedEntities);
 		Guard.IsNotNull(dataverseConnector);
@@ -28,18 +31,24 @@ public class DataverseMetadataConverter
 		_throwOnEntityNotFound = throwOnEntityNotFound;
 		_dataverseConnector = dataverseConnector;
 		_reporter = reporter ?? NullReporter.Instance;
+		_degreeOfParallelism = Math.Max(1, degreeOfParallelism);
 		WriteConverterSetting();
 	}
 
 	public MappingEntity[] GetMappedEntities()
 	{
-		_dataverseConnector.Connect();
+		return GetMappedEntitiesAsync(CancellationToken.None).GetAwaiter().GetResult();
+	}
+
+	public async Task<MappingEntity[]> GetMappedEntitiesAsync(CancellationToken cancellationToken = default)
+	{
+		_dataverseConnector.EnsureConnected();
 
 		Stopwatch stopper = Stopwatch.StartNew();
 		_reporter.StageStarted(Stage.Entities, _selectedEntities.Length);
 
 		IEnumerable<EntityMetadata> selectedEntities =
-			SelectedEntitiesMetaData();
+			await SelectedEntitiesMetaDataAsync(cancellationToken);
 
 		List<MappingEntity> mappedEntities =
 			selectedEntities
@@ -105,10 +114,15 @@ public class DataverseMetadataConverter
 		}
 	}
 
-	private EntityMetadata RetrieveEntityMetadata(string selectedEntity)
+	private async Task<EntityMetadata> RetrieveEntityMetadataAsync(
+		ServiceClientPool pool,
+		string selectedEntity,
+		CancellationToken cancellationToken)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
 		_reporter.ItemStarted(ItemKind.Entity, ItemPhase.Retrieve, selectedEntity);
 		Stopwatch stopper = Stopwatch.StartNew();
+		ServiceClient client = pool.Rent();
 
 		try
 		{
@@ -120,7 +134,7 @@ public class DataverseMetadataConverter
 			};
 
 			RetrieveEntityResponse response =
-				(RetrieveEntityResponse)_dataverseConnector.OrganizationService.Execute(req);
+				(RetrieveEntityResponse)await client.ExecuteAsync(req, cancellationToken);
 			_reporter.RequestCompleted(Stage.Entities, stopper.Elapsed);
 
 			_reporter.Log(LogLevel.Debug,
@@ -135,6 +149,10 @@ public class DataverseMetadataConverter
 			});
 
 			return response.EntityMetadata;
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
 		}
 		catch (Exception ex)
 		{
@@ -155,16 +173,24 @@ public class DataverseMetadataConverter
 
 			return null;
 		}
+		finally
+		{
+			pool.Return(client);
+		}
 	}
 
-	private IEnumerable<EntityMetadata> SelectedEntitiesMetaData()
+	/// <summary>
+	///  Retrieves the selected entities (up to the configured degree of parallelism at a time) and returns them in
+	///  the order of the selection, so the generated output does not depend on which request finishes first.
+	/// </summary>
+	private async Task<List<EntityMetadata>> SelectedEntitiesMetaDataAsync(CancellationToken cancellationToken)
 	{
-		bool isActivityPartyIncluded = false;
-		HashSet<string> retrievedEntitiesSchemaNames = new(_selectedEntities.Length + 10);
+		HashSet<string> seen = new(_selectedEntities.Length + 10);
+		List<string> uniqueEntities = new(_selectedEntities.Length);
 
 		foreach (string selectedEntity in _selectedEntities)
 		{
-			if (retrievedEntitiesSchemaNames.Contains(selectedEntity))
+			if (!seen.Add(selectedEntity))
 			{
 				_reporter.ItemCompleted(new ItemResult
 				{
@@ -177,44 +203,43 @@ public class DataverseMetadataConverter
 				continue;
 			}
 
-			EntityMetadata entityEntityMetadata =
-				RetrieveEntityMetadata(selectedEntity);
-
-			if (entityEntityMetadata == null)
-			{
-				continue;
-			}
-
-			retrievedEntitiesSchemaNames.Add(entityEntityMetadata.LogicalName);
-
-			yield return entityEntityMetadata;
-
-			if (isActivityPartyIncluded
-				|| (entityEntityMetadata.IsActivity != true
-					&& entityEntityMetadata.IsActivityParty != true))
-			{
-				continue;
-			}
-
-			isActivityPartyIncluded = true;
-
-			if (retrievedEntitiesSchemaNames.Contains(ActivityPartySchemaName))
-			{
-				continue;
-			}
-
-			EntityMetadata activityPartyMetadata =
-				RetrieveEntityMetadata(ActivityPartySchemaName);
-
-			if (activityPartyMetadata == null)
-			{
-				continue;
-			}
-
-			retrievedEntitiesSchemaNames.Add(ActivityPartySchemaName);
-
-			yield return activityPartyMetadata;
+			uniqueEntities.Add(selectedEntity);
 		}
+
+		using ServiceClientPool pool = _dataverseConnector.CreatePool(_degreeOfParallelism);
+		EntityMetadata[] retrieved = new EntityMetadata[uniqueEntities.Count];
+
+		await Parallel.ForEachAsync(Enumerable.Range(0, uniqueEntities.Count),
+			new ParallelOptions
+			{
+				MaxDegreeOfParallelism = _degreeOfParallelism,
+				CancellationToken = cancellationToken
+			},
+			async (index, token) =>
+			{
+				retrieved[index] = await RetrieveEntityMetadataAsync(pool, uniqueEntities[index], token);
+			});
+
+		List<EntityMetadata> result = retrieved.Where(metadata => metadata != null).ToList();
+
+		// The activity party entity is needed by activities; it follows the first activity entity,
+		// unless it was selected explicitly.
+		int firstActivity = result.FindIndex(metadata => metadata.IsActivity == true || metadata.IsActivityParty == true);
+
+		if (firstActivity < 0 || result.Any(metadata => metadata.LogicalName == ActivityPartySchemaName))
+		{
+			return result;
+		}
+
+		EntityMetadata activityPartyMetadata =
+			await RetrieveEntityMetadataAsync(pool, ActivityPartySchemaName, cancellationToken);
+
+		if (activityPartyMetadata != null)
+		{
+			result.Insert(firstActivity + 1, activityPartyMetadata);
+		}
+
+		return result;
 	}
 
 	private void WriteConverterSetting()

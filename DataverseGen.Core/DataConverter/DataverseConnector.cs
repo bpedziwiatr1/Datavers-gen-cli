@@ -7,6 +7,9 @@ namespace DataverseGen.Core.DataConverter;
 
 public class DataverseConnector : IDisposable
 {
+	private const int MaxDefaultParallelism = 8;
+
+	private readonly object _connectLock = new();
 	private readonly string _connectionString;
 	private readonly bool _isConnectionStringValidatorEnabled;
 	private readonly IGenerationReporter _reporter;
@@ -25,6 +28,34 @@ public class DataverseConnector : IDisposable
 	}
 
 	public ServiceClient OrganizationService { get; private set; }
+
+	/// <summary>Degree of parallelism the server recommends (known after connecting); 1 when not connected.</summary>
+	public int RecommendedDegreesOfParallelism => OrganizationService?.RecommendedDegreesOfParallelism ?? 1;
+
+	/// <summary>An explicit request wins; otherwise the server recommendation clamped to 1..8.</summary>
+	public static int ResolveDegreeOfParallelism(int? requested, int recommended)
+	{
+		return requested is > 0 ? requested.Value : Math.Clamp(recommended, 1, MaxDefaultParallelism);
+	}
+
+	/// <summary>Connects unless a connection already exists; safe to call from several converters.</summary>
+	public void EnsureConnected()
+	{
+		lock (_connectLock)
+		{
+			if (OrganizationService == null)
+			{
+				Connect();
+			}
+		}
+	}
+
+	internal ServiceClientPool CreatePool(int degreeOfParallelism)
+	{
+		EnsureConnected();
+
+		return new ServiceClientPool(OrganizationService, degreeOfParallelism);
+	}
 
 	public void Connect()
 	{

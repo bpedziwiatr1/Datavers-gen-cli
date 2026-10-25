@@ -14,9 +14,10 @@ using DataverseGen.Core.Reporting;
 
 namespace DataverseGen.Cli.Commands;
 
-internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
+internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 {
 	private const string DefaultLogPath = "dataversegen.log";
+	private const int CancelledExitCode = 130;
 
 	internal sealed class Settings : CommandSettings
 	{
@@ -32,9 +33,20 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 		[CommandOption("--log [PATH]")]
 		[Description("Write a full-detail log file (default: dataversegen.log in the current directory, overwritten per run).")]
 		public FlagValue<string?>? Log { get; init; }
+
+		[CommandOption("-p|--parallel <N>")]
+		[Description("Number of concurrent Dataverse requests / file writes. Default: the server's recommendation, 1-8. 1 = sequential.")]
+		public int? Parallel { get; init; }
+
+		public override ValidationResult Validate()
+		{
+			return Parallel is < 1
+				? ValidationResult.Error("--parallel must be at least 1.")
+				: ValidationResult.Success();
+		}
 	}
 
-	public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken)
+	public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
 	{
 		IAnsiConsole console = AnsiConsole.Console;
 		Theme theme = Theme.For(console);
@@ -63,29 +75,48 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 
 		using (fileLog)
 		{
-			bool live = SpectreReporter.CanRenderLive(console, Console.IsOutputRedirected);
-			SpectreReporter ui = new(console, theme, settings.Verbose, live);
-			IGenerationReporter sinks = fileLog is null ? ui : new CompositeReporter(ui, fileLog);
-			PerformanceCollector performance = new(sinks);
+			// Ctrl+C cancels the run instead of killing the process, so the log is flushed and the exit code is 130.
+			using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+			ConsoleCancelEventHandler onCancel = (_, e) =>
+			{
+				e.Cancel = true;
+				cancellation.Cancel();
+			};
 
-			return Run(settings, console, theme, ui, performance, fileLog, logPath);
+			Console.CancelKeyPress += onCancel;
+
+			try
+			{
+				bool live = SpectreReporter.CanRenderLive(console, Console.IsOutputRedirected);
+				SpectreReporter ui = new(console, theme, settings.Verbose, live);
+				IGenerationReporter sinks = fileLog is null ? ui : new CompositeReporter(ui, fileLog);
+				PerformanceCollector performance = new(sinks);
+
+				return await Run(settings, console, theme, ui, performance, fileLog, logPath, cancellation.Token);
+			}
+			finally
+			{
+				Console.CancelKeyPress -= onCancel;
+			}
 		}
 	}
 
 	private static string DescribeMode(Settings settings, string? logPath)
 	{
-		// Metadata retrieval and generation are sequential until the parallel pipeline lands.
-		return $"verbose {(settings.Verbose ? "on" : "off")} · log {(logPath is null ? "off" : logPath)} · parallelism 1";
+		string parallelism = settings.Parallel?.ToString() ?? "auto";
+
+		return $"verbose {(settings.Verbose ? "on" : "off")} · log {(logPath is null ? "off" : logPath)} · parallelism {parallelism}";
 	}
 
-	private static int Run(
+	private static async Task<int> Run(
 		Settings settings,
 		IAnsiConsole console,
 		Theme theme,
 		SpectreReporter ui,
 		PerformanceCollector reporter,
 		FileLogReporter? fileLog,
-		string? logPath)
+		string? logPath,
+		CancellationToken cancellationToken)
 	{
 		try
 		{
@@ -99,13 +130,22 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 				config.EnableConnectionStringValidation,
 				reporter);
 
-			ui.Run(() => Generate(config, dataverseConnector, reporter));
+			await ui.RunAsync(() => Generate(config, dataverseConnector, settings.Parallel, reporter, cancellationToken));
 
 			PerformanceReport report = reporter.Build();
 			SummaryRenderer.Render(console, theme, report, logPath);
 			fileLog?.Log(LogLevel.Info, report.ToText());
 
 			return 0;
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			fileLog?.Log(LogLevel.Warning, "Cancelled by user.");
+			console.WriteLine();
+			console.Write(new Text($"{theme.WarnIcon} Cancelled.", Theme.Of(Theme.Warning)));
+			console.WriteLine();
+
+			return CancelledExitCode;
 		}
 		catch (Exception e)
 		{
@@ -118,17 +158,48 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 		}
 	}
 
-	private static void Generate(ConfigModel config, DataverseConnector dataverseConnector, IGenerationReporter reporter)
+	private static async Task Generate(
+		ConfigModel config,
+		DataverseConnector dataverseConnector,
+		int? requestedParallelism,
+		PerformanceCollector reporter,
+		CancellationToken cancellationToken)
 	{
+		// Connect once up front: both converters share the connection and clone it for their workers.
+		dataverseConnector.EnsureConnected();
+		int recommended = dataverseConnector.RecommendedDegreesOfParallelism;
+		int parallelism = DataverseConnector.ResolveDegreeOfParallelism(requestedParallelism, recommended);
+		reporter.DegreeOfParallelism = parallelism;
+		reporter.Log(LogLevel.Info,
+			requestedParallelism is null
+				? $"Parallelism {parallelism} (server recommends {recommended})"
+				: $"Parallelism {parallelism}");
+
 		DataverseMetadataConverter dataConverter = new(dataverseConnector,
 			config.ThrowOnEntityNotFound,
 			config.Entities,
-			reporter);
+			reporter,
+			parallelism);
+		DataverseCustomApiConverter customApiConverter = new(dataverseConnector, config.CustomApis, reporter, parallelism);
 
-		MappingEntity[] data = dataConverter.GetMappedEntities();
+		MappingEntity[] data;
+		CustomApiModel[] customApis;
 
-		DataverseCustomApiConverter customApiConverter = new(dataverseConnector, config.CustomApis, reporter);
-		CustomApiModel[] customApis = customApiConverter.GetCustomApis();
+		if (parallelism > 1)
+		{
+			// Entities and custom APIs are independent; the first failure cancels the other retrieval.
+			using CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+			Task<MappingEntity[]> entitiesTask = CancelOnFault(() => dataConverter.GetMappedEntitiesAsync(stop.Token), stop);
+			Task<CustomApiModel[]> customApisTask = CancelOnFault(() => customApiConverter.GetCustomApisAsync(stop.Token), stop);
+			await Task.WhenAll(entitiesTask, customApisTask);
+			data = entitiesTask.Result;
+			customApis = customApisTask.Result;
+		}
+		else
+		{
+			data = await dataConverter.GetMappedEntitiesAsync(cancellationToken);
+			customApis = await customApiConverter.GetCustomApisAsync(cancellationToken);
+		}
 
 		Context generatorContext = new()
 		{
@@ -140,15 +211,29 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 		switch (config.TemplateEngine.Name)
 		{
 			case "scriban":
-				ScribanRun(config, generatorContext, reporter);
+				await ScribanRun(config, generatorContext, reporter, parallelism, cancellationToken);
 
 				break;
 
 			default:
 				reporter.Log(LogLevel.Warning, $@"Unsupported generator {config.TemplateEngine}, run scriban");
-				ScribanRun(config, generatorContext, reporter);
+				await ScribanRun(config, generatorContext, reporter, parallelism, cancellationToken);
 
 				break;
+		}
+	}
+
+	private static async Task<T> CancelOnFault<T>(Func<Task<T>> work, CancellationTokenSource stop)
+	{
+		try
+		{
+			return await work();
+		}
+		catch
+		{
+			await stop.CancelAsync();
+
+			throw;
 		}
 	}
 
@@ -201,7 +286,12 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 		return deserializedObject;
 	}
 
-	private static void ScribanRun(ConfigModel config, Context context, IGenerationReporter reporter)
+	private static Task ScribanRun(
+		ConfigModel config,
+		Context context,
+		IGenerationReporter reporter,
+		int parallelism,
+		CancellationToken cancellationToken)
 	{
 		ScribanGenerator scribanGenerator = new(config.TemplateName,
 			config.TemplateDirectoryName,
@@ -210,8 +300,9 @@ internal sealed class GenerateCommand : Command<GenerateCommand.Settings>
 			config.TemplateEngine,
 			config.CustomApiOutDirectory,
 			config.LegacyEntityFileNames,
-			reporter);
+			reporter,
+			parallelism);
 
-		scribanGenerator.GenerateTemplate();
+		return scribanGenerator.GenerateTemplateAsync(cancellationToken);
 	}
 }

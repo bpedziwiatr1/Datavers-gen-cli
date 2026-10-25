@@ -40,14 +40,25 @@ internal sealed class SpectreReporter : IGenerationReporter
 	/// </summary>
 	public void Run(Action action)
 	{
-		if (!_live)
+		RunAsync(() =>
 		{
 			action();
+
+			return Task.CompletedTask;
+		}).GetAwaiter().GetResult();
+	}
+
+	/// <summary>Async variant of <see cref="Run" />; the same rules about prompts apply.</summary>
+	public async Task RunAsync(Func<Task> action)
+	{
+		if (!_live)
+		{
+			await action();
 
 			return;
 		}
 
-		_console.Progress()
+		await _console.Progress()
 		   .AutoClear(false)
 		   .HideCompleted(false)
 		   .Columns(new SpinnerColumn(Spinner.Known.Dots) { Style = Theme.Of(Theme.Accent) },
@@ -56,7 +67,7 @@ internal sealed class SpectreReporter : IGenerationReporter
 				new CountColumn(),
 				new ElapsedTimeColumn(),
 				new CurrentItemColumn(GetCurrent))
-		   .Start(context =>
+		   .StartAsync(async context =>
 			{
 				lock (_lock)
 				{
@@ -65,7 +76,7 @@ internal sealed class SpectreReporter : IGenerationReporter
 
 				try
 				{
-					action();
+					await action();
 				}
 				finally
 				{
@@ -105,17 +116,26 @@ internal sealed class SpectreReporter : IGenerationReporter
 
 	public void StageStarted(Stage stage, int total)
 	{
+		ProgressContext? progress;
+
 		lock (_lock)
 		{
-			if (_progress is null)
-			{
-				WriteLine(_theme.Arrow, $"{GetLabel(stage)}{(total > 0 ? $" ({total})" : string.Empty)}", Theme.Accent);
+			progress = _progress;
+		}
 
-				return;
-			}
+		if (progress is null)
+		{
+			WriteLine(_theme.Arrow, $"{GetLabel(stage)}{(total > 0 ? $" ({total})" : string.Empty)}", Theme.Accent);
 
-			ProgressTask task = _progress.AddTask(GetLabel(stage), true, Math.Max(total, 1));
-			task.IsIndeterminate = stage == Stage.Connect;
+			return;
+		}
+
+		// Spectre calls stay outside _lock: the renderer holds its own locks while it calls GetCurrent (which takes _lock).
+		ProgressTask task = progress.AddTask(GetLabel(stage), true, Math.Max(total, 1));
+		task.IsIndeterminate = stage == Stage.Connect;
+
+		lock (_lock)
+		{
 			_tasks[stage] = task;
 		}
 	}
@@ -138,6 +158,9 @@ internal sealed class SpectreReporter : IGenerationReporter
 
 	public void ItemCompleted(ItemResult result)
 	{
+		ProgressTask? task;
+		bool live;
+
 		lock (_lock)
 		{
 			Stage stage = GetStage(result.Kind, result.Phase);
@@ -147,15 +170,15 @@ internal sealed class SpectreReporter : IGenerationReporter
 				names.Remove(result.Name ?? string.Empty);
 			}
 
-			if (_tasks.TryGetValue(stage, out ProgressTask? task))
-			{
-				task.Increment(1);
-			}
+			_tasks.TryGetValue(stage, out task);
+			live = _progress is not null;
 		}
+
+		task?.Increment(1);
 
 		bool problem = result.Status != ItemStatus.Ok;
 
-		if (!problem && !_verbose && _progress is not null)
+		if (!problem && !_verbose && live)
 		{
 			return;
 		}
@@ -179,16 +202,20 @@ internal sealed class SpectreReporter : IGenerationReporter
 
 	public void StageCompleted(Stage stage, TimeSpan elapsed)
 	{
+		ProgressTask? task;
+
 		lock (_lock)
 		{
-			if (_tasks.TryGetValue(stage, out ProgressTask? task))
-			{
-				task.IsIndeterminate = false;
-				task.Value = task.MaxValue;
-				task.StopTask();
+			_tasks.TryGetValue(stage, out task);
+		}
 
-				return;
-			}
+		if (task is not null)
+		{
+			task.IsIndeterminate = false;
+			task.Value = task.MaxValue;
+			task.StopTask();
+
+			return;
 		}
 
 		WriteLine(_theme.OkIcon, $"{GetLabel(stage)} done in {Format.Duration(elapsed)}", Theme.Success);
@@ -196,11 +223,8 @@ internal sealed class SpectreReporter : IGenerationReporter
 
 	private void WriteLine(string icon, string text, Color color)
 	{
-		lock (_lock)
-		{
-			_console.Write(new Text($"{icon} {text}", Theme.Of(color)));
-			_console.WriteLine();
-		}
+		// Not under _lock: the console serializes writes itself, and holding _lock here deadlocks with the live renderer.
+		_console.Write(new Text($"{icon} {text}{Environment.NewLine}", Theme.Of(color)));
 	}
 
 	private static string GetLabel(Stage stage)

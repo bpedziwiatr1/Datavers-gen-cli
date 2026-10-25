@@ -24,7 +24,9 @@ public static class CustomApiCSharpGenerator
 		IEnumerable<CustomApiModel> customApis,
 		Template template,
 		Template responseTemplate = null,
-		IGenerationReporter reporter = null)
+		IGenerationReporter reporter = null,
+		int degreeOfParallelism = 1,
+		CancellationToken cancellationToken = default)
 	{
 		if (customApis == null)
 		{
@@ -36,7 +38,17 @@ public static class CustomApiCSharpGenerator
 		string customApiDirectory = outPath;
 		Directory.CreateDirectory(customApiDirectory);
 
-		foreach (CustomApiModel customApi in customApis)
+		CustomApiModel[] apis = customApis.ToArray();
+		bool anyResponse = apis.Any(api => api.ResponseProperties is { Length: > 0 });
+		responseTemplate ??= anyResponse ? CustomApiTemplates.LoadBuiltInResponse(false) : null;
+
+		Parallel.ForEach(apis,
+			new ParallelOptions
+			{
+				MaxDegreeOfParallelism = Math.Max(1, degreeOfParallelism),
+				CancellationToken = cancellationToken
+			},
+			customApi =>
 		{
 			reporter.ItemStarted(ItemKind.CustomApi, ItemPhase.Generate, customApi.UniqueName);
 			Stopwatch timer = Stopwatch.StartNew();
@@ -48,7 +60,6 @@ public static class CustomApiCSharpGenerator
 
 			if (customApi.ResponseProperties is { Length: > 0 })
 			{
-				responseTemplate ??= CustomApiTemplates.LoadBuiltInResponse(false);
 				string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.cs");
 				File.WriteAllText(responsePath, RenderResponseClass(namespaceName, customApi, responseTemplate), Encoding.UTF8);
 				files++;
@@ -66,7 +77,7 @@ public static class CustomApiCSharpGenerator
 				Files = files,
 				Bytes = bytes
 			});
-		}
+		});
 	}
 
 	internal static string RenderResponseClass(string namespaceName, CustomApiModel customApi)

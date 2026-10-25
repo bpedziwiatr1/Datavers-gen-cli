@@ -320,6 +320,17 @@ dataversegen --log build\gen.log    # log to a custom path
 
 By default errors show a short panel (message + hint) only. The log file always contains debug entries, full stack traces and the performance report. Secrets in connection strings (`ClientSecret`, `Password`, `Secret`, `Key`, `Thumbprint`) are masked on the console and in the log.
 
+### Parallel retrieval and generation
+
+```powershell
+dataversegen --parallel 1      # fully sequential (diagnostics, safe fallback)
+dataversegen -p 4              # four concurrent requests / file writes
+```
+
+Entity metadata is retrieved and files are written in parallel, and entities and custom APIs are processed at the same time. Every concurrent request uses its own clone of the Dataverse connection. Without `--parallel` the degree is the value the server recommends (`RecommendedDegreesOfParallelism`), limited to 1-8; the banner shows `auto` and the resolved value is logged after connecting. The generated files are identical for every degree (entities are always ordered by display name); compare `--parallel 1` with the default in the performance panel to see the speed-up. Dataverse may throttle bursts of requests (service protection limits) - lower the value if you see throttling errors.
+
+**Ctrl+C** stops the run cleanly: pending work is cancelled, the log file is flushed and the exit code is `130`. Files already written stay on disk.
+
 ### Console output and performance report
 
 `generate` prints a compact header (version, runtime, working directory, config path, mode), then one progress bar per stage (Connect, Entities, Custom APIs, Generate) with the same layout for entities and custom APIs; the name of the entity / custom API currently being retrieved or generated is shown at the end of the bar. Warnings and failures are printed as they happen; `-v` additionally prints every processed item and debug lines.

@@ -3,6 +3,8 @@ namespace DataverseGen.Core.Reporting;
 /// <summary>
 ///  Sink for everything Core wants to tell the user. Core never writes to the console itself;
 ///  the host (CLI) decides about presentation, verbosity and log files.
+///  Implementations must be thread-safe: metadata retrieval and file generation call every member concurrently
+///  from worker threads. Each item gets exactly one <see cref="ItemCompleted" /> per phase.
 /// </summary>
 public interface IGenerationReporter
 {
