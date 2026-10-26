@@ -5,10 +5,10 @@ Source: `improve-codebase-architecture` review. Line numbers and LOC come from a
 | # | Candidate | Strength | Status |
 |---|---|---|---|
 | 01 | [Custom API writer module](01-custom-api-writer.md) | Strong | Done |
-| 02 | [Custom API type-mapping module](02-custom-api-type-mapping.md) | Strong | Open |
+| 02 | [Custom API type-mapping module](02-custom-api-type-mapping.md) | Strong | Done |
 | 03 | [Generation output module](03-generation-output-module.md) | Worth exploring | Partial |
 | 04 | [Metadata source seam](04-metadata-source-seam.md) | Worth exploring | Open |
-| 05 | [Generation pipeline in Core](05-generation-pipeline-in-core.md) | Worth exploring | Open |
+| 05 | [Generation pipeline in Core](05-generation-pipeline-in-core.md) | Worth exploring | Done |
 | 06 | [Reporting](06-reporting.md) | Speculative | Open |
 | 07 | [Connection string validation](07-connection-string-validation.md) | Speculative | Open |
 

@@ -1,10 +1,8 @@
 using System.ComponentModel;
 using CommunityToolkit.Diagnostics;
 using DataverseGen.Core.Config;
-using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.DataConverter;
-using DataverseGen.Core.Generators.Scriban;
-using DataverseGen.Core.Metadata;
+using DataverseGen.Core.Pipeline;
 using Meziantou.Framework.Win32;
 using Newtonsoft.Json;
 using DataverseGen.Cli.Ui;
@@ -131,16 +129,16 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 			ConfigModel config = GetConfig(settings.ConfigPath);
 			ConfigValidation.Validate(config);
 
-			if (settings.NoClear)
-			{
-				config.ClearOutputDirectory = false;
-			}
-
 			DataverseConnector dataverseConnector = new(config.ConnectionString,
 				config.EnableConnectionStringValidation,
 				reporter);
+			GenerationOptions options = new()
+			{
+				Parallelism = settings.Parallel,
+				NoClear = settings.NoClear
+			};
 
-			await ui.RunAsync(() => Generate(config, dataverseConnector, settings.Parallel, reporter, cancellationToken));
+			await ui.RunAsync(() => GenerationPipeline.RunAsync(config, dataverseConnector, options, reporter, cancellationToken));
 
 			PerformanceReport report = reporter.Build();
 			SummaryRenderer.Render(console, theme, report, logPath);
@@ -165,85 +163,6 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 			ErrorPanel.Render(console, theme, e, settings.Verbose, logPath);
 
 			return 1;
-		}
-	}
-
-	private static async Task Generate(
-		ConfigModel config,
-		DataverseConnector dataverseConnector,
-		int? requestedParallelism,
-		PerformanceCollector reporter,
-		CancellationToken cancellationToken)
-	{
-		// Connect once up front: both converters share the connection and clone it for their workers.
-		dataverseConnector.EnsureConnected();
-		int recommended = dataverseConnector.RecommendedDegreesOfParallelism;
-		int parallelism = DataverseConnector.ResolveDegreeOfParallelism(requestedParallelism, recommended);
-		reporter.DegreeOfParallelism = parallelism;
-		reporter.Log(LogLevel.Info,
-			requestedParallelism is null
-				? $"Parallelism {parallelism} (server recommends {recommended})"
-				: $"Parallelism {parallelism}");
-
-		DataverseMetadataConverter dataConverter = new(dataverseConnector,
-			config.ThrowOnEntityNotFound,
-			config.Entities,
-			reporter,
-			parallelism);
-		DataverseCustomApiConverter customApiConverter = new(dataverseConnector, config.CustomApis, reporter, parallelism);
-
-		MappingEntity[] data;
-		CustomApiModel[] customApis;
-
-		if (parallelism > 1)
-		{
-			// Entities and custom APIs are independent; the first failure cancels the other retrieval.
-			using CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-			Task<MappingEntity[]> entitiesTask = CancelOnFault(() => dataConverter.GetMappedEntitiesAsync(stop.Token), stop);
-			Task<CustomApiModel[]> customApisTask = CancelOnFault(() => customApiConverter.GetCustomApisAsync(stop.Token), stop);
-			await Task.WhenAll(entitiesTask, customApisTask);
-			data = entitiesTask.Result;
-			customApis = customApisTask.Result;
-		}
-		else
-		{
-			data = await dataConverter.GetMappedEntitiesAsync(cancellationToken);
-			customApis = await customApiConverter.GetCustomApisAsync(cancellationToken);
-		}
-
-		Context generatorContext = new()
-		{
-			Namespace = config.Namespace,
-			Entities = data,
-			CustomApis = customApis
-		};
-
-		switch (config.TemplateEngine.Name)
-		{
-			case "scriban":
-				await ScribanRun(config, generatorContext, reporter, parallelism, cancellationToken);
-
-				break;
-
-			default:
-				reporter.Log(LogLevel.Warning, $@"Unsupported generator {config.TemplateEngine}, run scriban");
-				await ScribanRun(config, generatorContext, reporter, parallelism, cancellationToken);
-
-				break;
-		}
-	}
-
-	private static async Task<T> CancelOnFault<T>(Func<Task<T>> work, CancellationTokenSource stop)
-	{
-		try
-		{
-			return await work();
-		}
-		catch
-		{
-			await stop.CancelAsync();
-
-			throw;
 		}
 	}
 
@@ -294,26 +213,5 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 		deserializedObject.ConnectionString = newCreds.Password;
 
 		return deserializedObject;
-	}
-
-	private static Task ScribanRun(
-		ConfigModel config,
-		Context context,
-		IGenerationReporter reporter,
-		int parallelism,
-		CancellationToken cancellationToken)
-	{
-		ScribanGenerator scribanGenerator = new(config.TemplateName,
-			config.TemplateDirectoryName,
-			string.IsNullOrWhiteSpace(config.EntitiesOutDirectory) ? config.OutDirectory : config.EntitiesOutDirectory,
-			context,
-			config.TemplateEngine,
-			config.CustomApiOutDirectory,
-			config.LegacyEntityFileNames,
-			reporter,
-			parallelism,
-			config.ClearOutputDirectory);
-
-		return scribanGenerator.GenerateTemplateAsync(cancellationToken);
 	}
 }

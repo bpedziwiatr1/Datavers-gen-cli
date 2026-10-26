@@ -1,6 +1,6 @@
 # 05 Generation pipeline in Core
 
-- Status: Open
+- Status: Done
 - Strength: Worth exploring
 
 ## Files
@@ -39,4 +39,8 @@ Deleting `GenerateCommand`'s pipeline body would move it, not remove it; the ben
 
 ## Decision log
 
-(empty)
+- Motive is locality (order and concurrency in one module), not a second host.
+- Done independently of 04: the pipeline keeps the concrete `DataverseConnector` and converters; no `IMetadataSource`.
+- Unknown `TemplateEngine.Name` keeps the soft behaviour (warning, run Scriban), now in `GenerationPipeline.CreateGenerator`.
+- Credentials (`GetConfig`, `GetCredentials`) stay in Cli, before `SpectreReporter.RunAsync`.
+- `Core/Pipeline/GenerationPipeline.RunAsync` + `GenerationOptions` replace `Generate`/`ScribanRun`; `--no-clear` no longer mutates the config.
