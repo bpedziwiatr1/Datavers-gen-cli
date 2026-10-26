@@ -33,6 +33,12 @@ Minimal `dataversegen.config.json`:
 
 If `ConnectionString` is omitted, the CLI asks for it and stores it in Windows Credential Manager.
 
+For interactive sign-in (browser, no password in the string) use:
+
+```text
+AuthType=OAuth;Url=https://contoso.crm.dynamics.com;AppId=51f81489-12ee-4a9e-aaae-a2591f45987d;RedirectUri=http://localhost;LoginPrompt=Auto;
+```
+
 ## Commands
 
 ```powershell
