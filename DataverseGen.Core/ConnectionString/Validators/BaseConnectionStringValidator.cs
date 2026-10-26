@@ -1,6 +1,6 @@
 ﻿namespace DataverseGen.Core.ConnectionString.Validators;
 
-public class BaseConnectionStringValidator
+internal class BaseConnectionStringValidator
 {
 	protected readonly IDictionary<string, string> ConnectionStringTokens;
 
@@ -29,7 +29,7 @@ public class BaseConnectionStringValidator
 			throw new Exception("IntegratedSecurityToken or Password token aren't present");
 		}
 
-		if (integratedSecurityToken.Value == "false")
+		if (string.Equals(integratedSecurityToken.Value, "false", StringComparison.OrdinalIgnoreCase))
 		{
 			throw new Exception(
 				$"Integrated Security Token present but missing password token , integrated token value {integratedSecurityToken.Value}");

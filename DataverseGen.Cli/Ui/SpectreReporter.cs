@@ -104,11 +104,11 @@ internal sealed class SpectreReporter : IGenerationReporter
 			_ => (_theme.Arrow, Theme.Accent)
 		};
 
-		string text = SecretMasker.MaskSecrets(message);
+		string text = message;
 
 		if (exception is not null && _verbose)
 		{
-			text = $"{text}{Environment.NewLine}{SecretMasker.MaskSecrets(exception.ToString())}";
+			text = $"{text}{Environment.NewLine}{exception.ToString()}";
 		}
 
 		WriteLine(icon, text, color);
@@ -174,6 +174,11 @@ internal sealed class SpectreReporter : IGenerationReporter
 			live = _progress is not null;
 		}
 
+		if (task is not null && task.Value >= task.MaxValue)
+		{
+			task.MaxValue = task.Value + 1;
+		}
+
 		task?.Increment(1);
 
 		bool problem = result.Status != ItemStatus.Ok;
@@ -183,9 +188,9 @@ internal sealed class SpectreReporter : IGenerationReporter
 			return;
 		}
 
-		string name = SecretMasker.MaskSecrets(result.Name ?? string.Empty);
-		string detail = string.IsNullOrEmpty(result.Detail) ? string.Empty : $" {_theme.Dot} {SecretMasker.MaskSecrets(result.Detail)}";
-		string kind = result.Kind == ItemKind.CustomApi ? "Custom API" : "Entity";
+		string name = result.Name ?? string.Empty;
+		string detail = string.IsNullOrEmpty(result.Detail) ? string.Empty : $" {_theme.Dot} {result.Detail}";
+		string kind = GetKindLabel(result.Kind);
 
 		string text = result.Status switch
 		{
@@ -238,6 +243,16 @@ internal sealed class SpectreReporter : IGenerationReporter
 		};
 	}
 
+	private static string GetKindLabel(ItemKind kind)
+	{
+		return kind switch
+		{
+			ItemKind.CustomApi => "Custom API",
+			ItemKind.Output => "File",
+			_ => "Entity"
+		};
+	}
+
 	private static Stage GetStage(ItemKind kind, ItemPhase phase)
 	{
 		if (phase == ItemPhase.Generate)
@@ -265,7 +280,7 @@ internal sealed class SpectreReporter : IGenerationReporter
 					return string.Empty;
 				}
 
-				string first = SecretMasker.MaskSecrets(names[0]);
+				string first = names[0];
 
 				return names.Count == 1 ? first : $"{first} +{names.Count - 1}";
 			}

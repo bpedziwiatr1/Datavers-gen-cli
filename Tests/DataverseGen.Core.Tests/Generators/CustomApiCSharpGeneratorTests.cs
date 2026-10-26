@@ -14,8 +14,8 @@ public class CustomApiCSharpGeneratorTests
 
 		try
 		{
-			CustomApiCSharpGenerator.WriteCustomApis(tempRoot,
-				"MyApp.CustomApis",
+			CustomApiTestHost.Write(tempRoot,
+				"C#",
 				new[]
 				{
 					new CustomApiModel
@@ -63,8 +63,8 @@ public class CustomApiCSharpGeneratorTests
 
 		try
 		{
-			CustomApiCSharpGenerator.WriteCustomApis(tempRoot,
-				"MyApp.CustomApis",
+			CustomApiTestHost.Write(tempRoot,
+				"C#",
 				new[]
 				{
 					new CustomApiModel
@@ -122,8 +122,8 @@ public class CustomApiCSharpGeneratorTests
 
 		try
 		{
-			CustomApiCSharpGenerator.WriteCustomApis(tempRoot,
-				"MyApp.CustomApis",
+			CustomApiTestHost.Write(tempRoot,
+				"C#",
 				new[]
 				{
 					new CustomApiModel
@@ -157,8 +157,8 @@ public class CustomApiCSharpGeneratorTests
 
 		try
 		{
-			CustomApiCSharpGenerator.WriteCustomApis(tempRoot,
-				"MyApp.CustomApis",
+			CustomApiTestHost.Write(tempRoot,
+				"C#",
 				new[]
 				{
 					new CustomApiModel
@@ -212,7 +212,7 @@ public class CustomApiCSharpGeneratorTests
 
 	private static string Render(CustomApiModel customApi)
 	{
-		return CustomApiCSharpGenerator.RenderRequestClass("MyApp.CustomApis", customApi);
+		return CustomApiTestHost.RenderCSharpRequest(customApi);
 	}
 
 	[TestMethod]
@@ -343,8 +343,8 @@ public class CustomApiCSharpGeneratorTests
 
 		try
 		{
-			CustomApiCSharpGenerator.WriteCustomApis(tempRoot,
-				"MyApp.CustomApis",
+			CustomApiTestHost.Write(tempRoot,
+				"C#",
 				new[]
 				{
 					new CustomApiModel { RequestClassName = "PingRequest", ResponseClassName = "PingResponse", OperationName = "newping" },
@@ -389,7 +389,7 @@ public class CustomApiCSharpGeneratorTests
 
 		try
 		{
-			CustomApiCSharpGenerator.WriteCustomApis(tempRoot, "MyApp.CustomApis", (IEnumerable<CustomApiModel>)null!);
+			CustomApiTestHost.Write(tempRoot, "C#", null);
 
 			Assert.AreEqual(0, Directory.GetFileSystemEntries(tempRoot).Length);
 		}
