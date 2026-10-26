@@ -15,6 +15,10 @@ internal sealed class RecordingReporter : IGenerationReporter
 
 	public List<Stage> Completed { get; } = [];
 
+	public List<(ItemKind Kind, ItemPhase Phase, string Name)> ItemsStarted { get; } = [];
+
+	public List<(Stage Stage, TimeSpan Elapsed)> Requests { get; } = [];
+
 	public void Log(LogLevel level, string message, Exception? exception = null)
 	{
 		lock (_lock)
@@ -44,6 +48,22 @@ internal sealed class RecordingReporter : IGenerationReporter
 		lock (_lock)
 		{
 			Completed.Add(stage);
+		}
+	}
+
+	public void ItemStarted(ItemKind kind, ItemPhase phase, string name)
+	{
+		lock (_lock)
+		{
+			ItemsStarted.Add((kind, phase, name));
+		}
+	}
+
+	public void RequestCompleted(Stage stage, TimeSpan elapsed)
+	{
+		lock (_lock)
+		{
+			Requests.Add((stage, elapsed));
 		}
 	}
 }

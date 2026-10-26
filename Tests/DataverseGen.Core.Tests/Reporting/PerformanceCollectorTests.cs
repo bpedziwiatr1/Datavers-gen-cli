@@ -89,7 +89,7 @@ public class PerformanceCollectorTests
 	[TestMethod]
 	public void Build_Parallel_SpeedUpIsItemTimeOverStageWallClock()
 	{
-		PerformanceCollector collector = new() { DegreeOfParallelism = 4 };
+		PerformanceCollector collector = new();
 
 		for (int i = 0; i < 4; i++)
 		{
@@ -98,8 +98,9 @@ public class PerformanceCollectorTests
 
 		collector.StageCompleted(Stage.Entities, TimeSpan.FromMilliseconds(400));
 
-		PerformanceReport report = collector.Build();
+		PerformanceReport report = collector.Build(4);
 
+		Assert.AreEqual(4, report.DegreeOfParallelism);
 		Assert.AreEqual(TimeSpan.FromMilliseconds(1600), report.SumOfItemTimes);
 		Assert.AreEqual(4.0, report.SpeedUp, 0.0001);
 	}
@@ -123,43 +124,27 @@ public class PerformanceCollectorTests
 	}
 
 	[TestMethod]
-	public void Build_CountsRequestsAndCollectsMaskedWarnings()
+	public void Build_CountsRequestsAndCollectsWarningsAndErrors()
 	{
 		PerformanceCollector collector = new();
 		collector.RequestCompleted(Stage.Entities, TimeSpan.FromMilliseconds(20));
 		collector.RequestCompleted(Stage.CustomApis, TimeSpan.FromMilliseconds(30));
 		collector.Log(LogLevel.Debug, "ignored");
-		collector.Log(LogLevel.Warning, "bad ClientSecret=abc;Url=x");
+		collector.Log(LogLevel.Warning, "bad");
+		collector.Log(LogLevel.Error, "worse");
 
 		PerformanceReport report = collector.Build();
 
 		Assert.AreEqual(2, report.RequestCount);
 		Assert.AreEqual(TimeSpan.FromMilliseconds(50), report.RequestTime);
-		Assert.AreEqual("bad ClientSecret=***;Url=x", report.Messages.Single());
+		CollectionAssert.AreEqual(new[] { "bad", "worse" }, report.Messages.ToArray());
 		Assert.IsGreaterThan(0, report.PeakWorkingSetBytes);
-	}
-
-	[TestMethod]
-	public void Collector_ForwardsEveryCallToInnerReporter()
-	{
-		RecordingReporter inner = new();
-		PerformanceCollector collector = new(inner);
-
-		collector.StageStarted(Stage.Entities, 2);
-		collector.ItemCompleted(Item(ItemKind.Entity, "a", ItemPhase.Retrieve, 1));
-		collector.Log(LogLevel.Info, "hello");
-		collector.StageCompleted(Stage.Entities, TimeSpan.Zero);
-
-		Assert.AreEqual((Stage.Entities, 2), inner.Started.Single());
-		Assert.HasCount(1, inner.Items);
-		Assert.HasCount(1, inner.Logs);
-		Assert.HasCount(1, inner.Completed);
 	}
 
 	[TestMethod]
 	public void Collector_IsThreadSafe()
 	{
-		PerformanceCollector collector = new() { DegreeOfParallelism = 8 };
+		PerformanceCollector collector = new();
 
 		Parallel.For(0,
 			1000,
@@ -172,7 +157,7 @@ public class PerformanceCollectorTests
 				collector.Log(LogLevel.Warning, "w");
 			});
 
-		PerformanceReport report = collector.Build();
+		PerformanceReport report = collector.Build(8);
 
 		Assert.HasCount(100, report.Items);
 		Assert.AreEqual(1000, report.FilesWritten);

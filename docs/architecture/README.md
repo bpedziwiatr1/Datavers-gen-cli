@@ -9,7 +9,7 @@ Source: `improve-codebase-architecture` review. Line numbers and LOC come from a
 | 03 | [Generation output module](03-generation-output-module.md) | Worth exploring | Partial |
 | 04 | [Metadata source seam](04-metadata-source-seam.md) | Worth exploring | Open |
 | 05 | [Generation pipeline in Core](05-generation-pipeline-in-core.md) | Worth exploring | Done |
-| 06 | [Reporting](06-reporting.md) | Speculative | Open |
+| 06 | [Reporting](06-reporting.md) | Speculative | Done |
 | 07 | [Connection string validation](07-connection-string-validation.md) | Speculative | Open |
 
 Recommended order: 01+02 together, then 03, then 04+05, then 06 and 07.

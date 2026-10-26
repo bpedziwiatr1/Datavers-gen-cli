@@ -91,10 +91,12 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 			{
 				bool live = SpectreReporter.CanRenderLive(console, Console.IsOutputRedirected);
 				SpectreReporter ui = new(console, theme, settings.Verbose, live);
-				IGenerationReporter sinks = fileLog is null ? ui : new CompositeReporter(ui, fileLog);
-				PerformanceCollector performance = new(sinks);
+				PerformanceCollector performance = new();
+				IGenerationReporter sinks = new MaskingReporter(fileLog is null
+					? new CompositeReporter(ui, performance)
+					: new CompositeReporter(ui, fileLog, performance));
 
-				return await Run(settings, console, theme, ui, performance, fileLog, logPath, cancellation.Token);
+				return await Run(settings, console, theme, ui, sinks, performance, fileLog, logPath, cancellation.Token);
 			}
 			finally
 			{
@@ -115,7 +117,8 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 		IAnsiConsole console,
 		Theme theme,
 		SpectreReporter ui,
-		PerformanceCollector reporter,
+		IGenerationReporter reporter,
+		PerformanceCollector performance,
 		FileLogReporter? fileLog,
 		string? logPath,
 		CancellationToken cancellationToken)
@@ -138,9 +141,11 @@ internal sealed class GenerateCommand : AsyncCommand<GenerateCommand.Settings>
 				NoClear = settings.NoClear
 			};
 
-			await ui.RunAsync(() => GenerationPipeline.RunAsync(config, dataverseConnector, options, reporter, cancellationToken));
+			int parallelism = 1;
 
-			PerformanceReport report = reporter.Build();
+			await ui.RunAsync(async () => parallelism = await GenerationPipeline.RunAsync(config, dataverseConnector, options, reporter, cancellationToken));
+
+			PerformanceReport report = performance.Build(parallelism);
 			SummaryRenderer.Render(console, theme, report, logPath);
 			fileLog?.Log(LogLevel.Info, report.ToText());
 

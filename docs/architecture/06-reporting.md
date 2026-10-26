@@ -1,6 +1,6 @@
 # 06 Reporting
 
-- Status: Open
+- Status: Done
 - Strength: Speculative
 
 ## Files
@@ -38,4 +38,9 @@ Deleting `CompositeReporter` or `NullReporter` would spread null checks, so they
 
 ## Decision log
 
-(empty)
+- Motive is the risk of leaking a secret (masking in one place), not interface narrowing.
+- Masking moved to the reporter boundary: `Core/Reporting/MaskingReporter` wraps the sink chain and masks message, exception, item name and detail. `FileLogReporter`, `SpectreReporter` and `PerformanceCollector` no longer call `SecretMasker`; `SummaryRenderer`, `ErrorPanel` and `DataverseConnector` still do (they sit outside the reporter path).
+- `PerformanceCollector` is a plain sink (no inner reporter, no `DegreeOfParallelism` setter); `Build(degreeOfParallelism)` takes the value, and `GenerationPipeline.RunAsync` returns the resolved parallelism.
+- `FileLogReporter` now writes `ItemStarted` and `RequestCompleted`.
+- `SpectreReporter` labels `ItemKind.Output` as "File" and grows the bar total when more items complete than announced (the extra `activityparty`).
+- Not done: narrowing the interface (default members stay).

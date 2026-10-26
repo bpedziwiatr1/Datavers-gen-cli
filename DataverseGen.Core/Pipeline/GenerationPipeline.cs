@@ -13,11 +13,11 @@ public static class GenerationPipeline
 {
 	private const string ScribanEngine = "scriban";
 
-	public static async Task RunAsync(
+	public static async Task<int> RunAsync(
 		ConfigModel config,
 		DataverseConnector connector,
 		GenerationOptions options,
-		PerformanceCollector reporter,
+		IGenerationReporter reporter,
 		CancellationToken cancellationToken)
 	{
 		// Connect once up front: both converters share the connection and clone it for their workers.
@@ -46,6 +46,8 @@ public static class GenerationPipeline
 		BaseGenerator generator = CreateGenerator(config, context, options, reporter, parallelism);
 
 		await generator.GenerateTemplateAsync(cancellationToken);
+
+		return parallelism;
 	}
 
 	internal static bool ShouldClearOutputDirectory(ConfigModel config, GenerationOptions options)
@@ -100,11 +102,10 @@ public static class GenerationPipeline
 			ShouldClearOutputDirectory(config, options));
 	}
 
-	private static int ResolveParallelism(DataverseConnector connector, int? requested, PerformanceCollector reporter)
+	private static int ResolveParallelism(DataverseConnector connector, int? requested, IGenerationReporter reporter)
 	{
 		int recommended = connector.RecommendedDegreesOfParallelism;
 		int parallelism = DataverseConnector.ResolveDegreeOfParallelism(requested, recommended);
-		reporter.DegreeOfParallelism = parallelism;
 		reporter.Log(LogLevel.Info,
 			requested is null
 				? $"Parallelism {parallelism} (server recommends {recommended})"

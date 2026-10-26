@@ -5,7 +5,7 @@ namespace DataverseGen.Core.Reporting;
 
 /// <summary>
 ///  Writes every message (including Debug and full exception stack traces) to a file, regardless of the console
-///  verbosity. The file is overwritten per run. Thread-safe; secrets are masked.
+///  verbosity. The file is overwritten per run. Thread-safe; expects secrets to be masked upstream (see <see cref="MaskingReporter" />).
 /// </summary>
 public sealed class FileLogReporter : IGenerationReporter, IDisposable
 {
@@ -40,6 +40,11 @@ public sealed class FileLogReporter : IGenerationReporter, IDisposable
 		Write("STAGE", $"{stage} started ({total})");
 	}
 
+	public void ItemStarted(ItemKind kind, ItemPhase phase, string name)
+	{
+		Write("ITEM", $"{kind} {name} [{phase}]: started");
+	}
+
 	public void ItemCompleted(ItemResult result)
 	{
 		string detail = string.IsNullOrEmpty(result.Detail) ? string.Empty : $" · {result.Detail}";
@@ -53,6 +58,11 @@ public sealed class FileLogReporter : IGenerationReporter, IDisposable
 		Write("STAGE", $"{stage} completed in {elapsed:g}");
 	}
 
+	public void RequestCompleted(Stage stage, TimeSpan elapsed)
+	{
+		Write("REQUEST", $"{stage} request completed in {elapsed:g}");
+	}
+
 	public void Dispose()
 	{
 		lock (_lock)
@@ -64,7 +74,7 @@ public sealed class FileLogReporter : IGenerationReporter, IDisposable
 	private void Write(string level, string message)
 	{
 		string line =
-			$"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)} [{level,-7}] {SecretMasker.MaskSecrets(message)}";
+			$"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)} [{level,-7}] {message}";
 
 		lock (_lock)
 		{
