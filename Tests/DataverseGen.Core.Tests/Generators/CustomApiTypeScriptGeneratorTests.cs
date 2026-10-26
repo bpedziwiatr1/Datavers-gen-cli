@@ -14,7 +14,7 @@ public class CustomApiTypeScriptGeneratorTests
 
 		try
 		{
-			CustomApiTypeScriptGenerator.WriteCustomApis(tempRoot, new[]
+			CustomApiTestHost.Write(tempRoot, "ts", new[]
 			{
 				new CustomApiModel { RequestClassName = "PingRequest", ResponseClassName = "PingResponse", OperationName = "newping" },
 				new CustomApiModel
@@ -51,7 +51,7 @@ public class CustomApiTypeScriptGeneratorTests
 
 		try
 		{
-			CustomApiTypeScriptGenerator.WriteCustomApis(tempRoot, new[]
+			CustomApiTestHost.Write(tempRoot, "ts", new[]
 			{
 				new CustomApiModel
 				{
@@ -101,7 +101,7 @@ public class CustomApiTypeScriptGeneratorTests
 
 		try
 		{
-			CustomApiTypeScriptGenerator.WriteCustomApis(tempRoot, (IEnumerable<CustomApiModel>)null!);
+			CustomApiTestHost.Write(tempRoot, "ts", null);
 
 			Assert.AreEqual(0, Directory.GetFileSystemEntries(tempRoot).Length);
 		}
@@ -122,7 +122,7 @@ public class CustomApiTypeScriptGeneratorTests
 
 		try
 		{
-			CustomApiTypeScriptGenerator.WriteCustomApis(tempRoot, new[]
+			CustomApiTestHost.Write(tempRoot, "ts", new[]
 			{
 				new CustomApiModel
 				{
@@ -156,7 +156,7 @@ public class CustomApiTypeScriptGeneratorTests
 
 		try
 		{
-			CustomApiTypeScriptGenerator.WriteCustomApis(tempRoot, new[]
+			CustomApiTestHost.Write(tempRoot, "ts", new[]
 			{
 				new CustomApiModel
 				{

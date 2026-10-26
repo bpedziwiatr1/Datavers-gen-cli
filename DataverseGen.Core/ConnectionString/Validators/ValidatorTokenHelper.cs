@@ -26,18 +26,9 @@ internal static class ValidatorTokenHelper
 		HashSet<string> searchTokens,
 		out KeyValuePair<string, string> foundToken)
 	{
-		foundToken = new KeyValuePair<string, string>();
+		string tokenName = searchTokens.FirstOrDefault(tokens.ContainsKey);
 
-		try
-		{
-			foundToken = CheckIfTokenIsPresentWithValue(tokens, searchTokens);
-
-			return true;
-		}
-		catch (ArgumentNullException)
-		{
-			return false;
-		}
+		return TryGetTokenWithValue(tokens, tokenName, out foundToken);
 	}
 
 	public static bool TryCheckIfTokenIsPresentWithValue(
@@ -45,18 +36,24 @@ internal static class ValidatorTokenHelper
 		string searchToken,
 		out KeyValuePair<string, string> foundToken)
 	{
+		return TryGetTokenWithValue(tokens, searchToken, out foundToken);
+	}
+
+	private static bool TryGetTokenWithValue(
+		IDictionary<string, string> tokens,
+		string tokenName,
+		out KeyValuePair<string, string> foundToken)
+	{
 		foundToken = new KeyValuePair<string, string>();
 
-		try
-		{
-			foundToken = CheckIfTokenIsPresentWithValue(tokens, searchToken);
-
-			return true;
-		}
-		catch (ArgumentNullException)
+		if (tokenName is null || !tokens.TryGetValue(tokenName, out string value) || string.IsNullOrWhiteSpace(value))
 		{
 			return false;
 		}
+
+		foundToken = new KeyValuePair<string, string>(tokenName, value);
+
+		return true;
 	}
 
 	private static string CheckIfTokenKeyPresent(

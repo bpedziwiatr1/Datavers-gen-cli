@@ -254,7 +254,7 @@ public class DataverseCustomApiConverter
 		string displayName = GetString(entity, "name");
 		string uniqueName = GetString(entity, "uniquename");
 		string classNameSource = string.IsNullOrWhiteSpace(displayName) ? uniqueName : displayName;
-		string className = ToPascalCase(classNameSource);
+		string className = MetadataNamingExtensions.ToPascalCase(classNameSource);
 		if (!className.EndsWith("Request", StringComparison.InvariantCultureIgnoreCase))
 		{
 			className += "Request";
@@ -296,21 +296,7 @@ public class DataverseCustomApiConverter
 		string typeLabel = GetFormattedOrRawValue(entity, "type");
 		string logicalEntityName = GetString(entity, "logicalentityname");
 
-		string tsType;
-		string cSharpTypeName;
-		string webApiTypeName;
-		string structuralProperty;
-
-		if (!isResponse ||
-			!TryNormalizeCustomApiResponseType(typeLabel, out tsType, out cSharpTypeName, out webApiTypeName, out structuralProperty))
-		{
-			NormalizeCustomApiParameterType(typeLabel,
-				logicalEntityName,
-				out tsType,
-				out cSharpTypeName,
-				out webApiTypeName,
-				out structuralProperty);
-		}
+		CustomApiTypeInfo typeInfo = CustomApiTypeMapper.Resolve(typeLabel, logicalEntityName, isResponse);
 
 		return new CustomApiParameterModel
 		{
@@ -326,10 +312,10 @@ public class DataverseCustomApiConverter
 			PropertyName = propertyName,
 			RequestPropertyName = MetadataNamingExtensions.GetProperVariableName(string.IsNullOrWhiteSpace(uniqueName) ? propertyName : uniqueName),
 			ConstructorParameterName = MetadataNamingExtensions.GetProperVariableName(string.IsNullOrWhiteSpace(displayName) ? propertyName : displayName),
-			TypeScriptType = tsType,
-			CSharpTypeName = cSharpTypeName,
-			WebApiTypeName = webApiTypeName,
-			WebApiStructuralProperty = structuralProperty
+			TypeScriptType = typeInfo.TypeScriptType,
+			CSharpTypeName = typeInfo.CSharpTypeName,
+			WebApiTypeName = typeInfo.WebApiTypeName,
+			WebApiStructuralProperty = typeInfo.WebApiStructuralProperty
 		};
 	}
 
@@ -388,204 +374,5 @@ public class DataverseCustomApiConverter
 	private static string GetString(Entity entity, string attributeName)
 	{
 		return entity.GetAttributeValue<string>(attributeName) ?? string.Empty;
-	}
-
-	/// <summary>
-	///  Maps the exact Dataverse response property types that the request mapping gets wrong (it matches by
-	///  substring, so <c>EntityCollection</c> and <c>EntityReference</c> end up as collection / entity reference).
-	///  Returns false for types the request mapping already handles.
-	/// </summary>
-	private static bool TryNormalizeCustomApiResponseType(
-		string typeLabel,
-		out string typeScriptType,
-		out string cSharpTypeName,
-		out string webApiTypeName,
-		out string structuralProperty)
-	{
-		structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
-
-		switch ((typeLabel ?? string.Empty).Trim().ToLowerInvariant())
-		{
-			case "entity":
-				typeScriptType = "any";
-				cSharpTypeName = "Entity";
-				webApiTypeName = "mscrm.crmbaseentity";
-				structuralProperty = "WebApiRequestStructuralProperty.EntityType";
-				return true;
-			case "entitycollection":
-				typeScriptType = "any[]";
-				cSharpTypeName = "EntityCollection";
-				webApiTypeName = "Collection(mscrm.crmbaseentity)";
-				structuralProperty = "WebApiRequestStructuralProperty.Collection";
-				return true;
-			case "entityreference":
-				typeScriptType = "any";
-				cSharpTypeName = "EntityReference";
-				webApiTypeName = "mscrm.crmbaseentity";
-				structuralProperty = "WebApiRequestStructuralProperty.EntityType";
-				return true;
-			case "stringarray":
-				typeScriptType = "string[]";
-				cSharpTypeName = "string[]";
-				webApiTypeName = "Collection(Edm.String)";
-				structuralProperty = "WebApiRequestStructuralProperty.Collection";
-				return true;
-			case "money":
-				typeScriptType = "number";
-				cSharpTypeName = "Money";
-				webApiTypeName = "Edm.Decimal";
-				return true;
-			case "picklist":
-			case "integer":
-				typeScriptType = "number";
-				cSharpTypeName = "int";
-				webApiTypeName = "Edm.Int32";
-				return true;
-			case "float":
-				typeScriptType = "number";
-				cSharpTypeName = "double";
-				webApiTypeName = "Edm.Double";
-				return true;
-			default:
-				typeScriptType = null;
-				cSharpTypeName = null;
-				webApiTypeName = null;
-				return false;
-		}
-	}
-
-	private static void NormalizeCustomApiParameterType(
-		string typeLabel,
-		string logicalEntityName,
-		out string typeScriptType,
-		out string cSharpTypeName,
-		out string webApiTypeName,
-		out string structuralProperty)
-	{
-		string normalizedType = (typeLabel ?? string.Empty).Trim().ToLowerInvariant();
-
-		if (string.IsNullOrWhiteSpace(normalizedType))
-		{
-			typeScriptType = "string";
-			cSharpTypeName = "string";
-			webApiTypeName = "Edm.String";
-			structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
-			return;
-		}
-
-		if (normalizedType.Contains("collection"))
-		{
-			typeScriptType = "string[]";
-			cSharpTypeName = string.IsNullOrWhiteSpace(logicalEntityName)
-				? "string[]"
-				: "EntityReference[]";
-			webApiTypeName = string.IsNullOrWhiteSpace(logicalEntityName)
-				? "Collection(Edm.String)"
-				: $"Collection(mscrm.{logicalEntityName})";
-			structuralProperty = "WebApiRequestStructuralProperty.Collection";
-			return;
-		}
-
-		if (normalizedType.Contains("entity"))
-		{
-			typeScriptType = "any";
-			cSharpTypeName = "EntityReference";
-			webApiTypeName = string.IsNullOrWhiteSpace(logicalEntityName)
-				? "mscrm.crmbaseentity"
-				: $"mscrm.{logicalEntityName}";
-			structuralProperty = "WebApiRequestStructuralProperty.EntityType";
-			return;
-		}
-
-		if (normalizedType.Contains("bool"))
-		{
-			typeScriptType = "boolean";
-			cSharpTypeName = "bool";
-			webApiTypeName = "Edm.Boolean";
-			structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
-			return;
-		}
-
-		if (normalizedType.Contains("int") || normalizedType.Contains("whole"))
-		{
-			typeScriptType = "number";
-			cSharpTypeName = "int";
-			webApiTypeName = "Edm.Int32";
-			structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
-			return;
-		}
-
-		if (normalizedType.Contains("decimal") || normalizedType.Contains("double") || normalizedType.Contains("money") || normalizedType.Contains("float"))
-		{
-			typeScriptType = "number";
-			cSharpTypeName = "decimal";
-			webApiTypeName = "Edm.Decimal";
-			structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
-			return;
-		}
-
-		if (normalizedType.Contains("date"))
-		{
-			typeScriptType = "Date";
-			cSharpTypeName = "DateTime";
-			webApiTypeName = "Edm.DateTimeOffset";
-			structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
-			return;
-		}
-
-		if (normalizedType.Contains("guid") || normalizedType.Contains("unique"))
-		{
-			typeScriptType = "string";
-			cSharpTypeName = "Guid";
-			webApiTypeName = "Edm.Guid";
-			structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
-			return;
-		}
-
-		typeScriptType = "string";
-		cSharpTypeName = "string";
-		webApiTypeName = "Edm.String";
-		structuralProperty = "WebApiRequestStructuralProperty.PrimitiveType";
-	}
-
-	private static string ToPascalCase(string value, bool capitalizeFirstWord = true)
-	{
-		if (string.IsNullOrWhiteSpace(value))
-		{
-			return string.Empty;
-		}
-
-		char[] separators = [' ', '_', '-', '.', '/', '\\'];
-		string[] parts = value.Split(separators, StringSplitOptions.RemoveEmptyEntries);
-		StringBuilder builder = new();
-
-		for (int i = 0; i < parts.Length; i++)
-		{
-			string part = parts[i].Trim();
-
-			if (part.Length == 0)
-			{
-				continue;
-			}
-
-			if (i == 0 && !capitalizeFirstWord)
-			{
-				builder.Append(char.ToLowerInvariant(part[0]));
-				if (part.Length > 1)
-				{
-					builder.Append(part[1..]);
-				}
-			}
-			else
-			{
-				builder.Append(char.ToUpperInvariant(part[0]));
-				if (part.Length > 1)
-				{
-					builder.Append(part[1..]);
-				}
-			}
-		}
-
-		return builder.ToString();
 	}
 }

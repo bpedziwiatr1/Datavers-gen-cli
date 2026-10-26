@@ -43,10 +43,22 @@ public class Office365Tests
 	}
 
 	[TestMethod]
-	public void Office365_IntegratedSecurityFalseWithoutPassword_Throws()
+	[DataRow("false")]
+	[DataRow("False")]
+	[DataRow("FALSE")]
+	public void Office365_IntegratedSecurityFalseWithoutPassword_Throws(string value)
 	{
 		Assert.ThrowsExactly<Exception>(() =>
 			new ConnectionStringValidator(
-				"AuthType=Office365;Username=jsmith@contoso.onmicrosoft.com;Integrated Security=false;Url=https://contoso.crm.dynamics.com;").Validate());
+				$"AuthType=Office365;Username=jsmith@contoso.onmicrosoft.com;Integrated Security={value};Url=https://contoso.crm.dynamics.com;").Validate());
+	}
+
+	[TestMethod]
+	[DataRow("true")]
+	[DataRow("True")]
+	public void Office365_IntegratedSecurityTrueWithoutPassword_Success(string value)
+	{
+		new ConnectionStringValidator(
+			$"AuthType=Office365;Username=jsmith@contoso.onmicrosoft.com;Integrated Security={value};Url=https://contoso.crm.dynamics.com;").Validate();
 	}
 }

@@ -20,13 +20,13 @@ public class CustomApiBaselineTests
 	{
 		AssertMatchesBaseline("customapi-csharp",
 			"cs",
-			model => CustomApiCSharpGenerator.RenderRequestClass(Namespace, model));
+			model => CustomApiTestHost.RenderCSharpRequest(model));
 	}
 
 	[TestMethod]
 	public void RenderRequestClass_TypeScript_MatchesBaseline()
 	{
-		AssertMatchesBaseline("customapi-ts", "ts", CustomApiTypeScriptGenerator.RenderRequestClass);
+		AssertMatchesBaseline("customapi-ts", "ts", model => CustomApiTestHost.RenderTypeScriptRequest(model));
 	}
 
 	[TestMethod]
@@ -34,7 +34,7 @@ public class CustomApiBaselineTests
 	{
 		AssertMatchesBaseline("customapi-response-csharp",
 			"cs",
-			model => CustomApiCSharpGenerator.RenderResponseClass(Namespace, model),
+			CustomApiTestHost.RenderCSharpResponse,
 			BuildResponseModels(),
 			m => m.ResponseClassName);
 	}
@@ -44,7 +44,7 @@ public class CustomApiBaselineTests
 	{
 		AssertMatchesBaseline("customapi-response-ts",
 			"ts",
-			CustomApiTypeScriptGenerator.RenderResponseInterface,
+			CustomApiTestHost.RenderTypeScriptResponse,
 			BuildResponseModels(),
 			m => m.ResponseClassName);
 	}

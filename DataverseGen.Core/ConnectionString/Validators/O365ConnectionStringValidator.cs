@@ -1,6 +1,6 @@
 ﻿namespace DataverseGen.Core.ConnectionString.Validators;
 
-public class O365ConnectionStringValidator : BaseConnectionStringValidator,
+internal class O365ConnectionStringValidator : BaseConnectionStringValidator,
 	IConnectionStringValidator
 {
 	public O365ConnectionStringValidator(IDictionary<string, string> connectionStringTokens)

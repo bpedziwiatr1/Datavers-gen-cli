@@ -3,46 +3,20 @@ using System.Diagnostics;
 namespace DataverseGen.Core.Reporting;
 
 /// <summary>
-///  Wraps another reporter: forwards every call unchanged and aggregates durations, request counts and written
-///  files into a <see cref="PerformanceReport" />. Thread-safe.
+///  Sink that aggregates durations, request counts and written files into a <see cref="PerformanceReport" />.
+///  Thread-safe.
 /// </summary>
 public sealed class PerformanceCollector : IGenerationReporter
 {
 	private const int SlowestCount = 3;
 
-	private readonly IGenerationReporter _inner;
 	private readonly Dictionary<(ItemKind Kind, string Name), ItemState> _items = new();
 	private readonly object _lock = new();
 	private readonly List<string> _messages = new();
 	private readonly List<KeyValuePair<Stage, TimeSpan>> _stages = new();
 	private readonly Stopwatch _wallClock = Stopwatch.StartNew();
-	private int _degreeOfParallelism = 1;
 	private int _requestCount;
 	private TimeSpan _requestTime;
-
-	public PerformanceCollector(IGenerationReporter inner = null)
-	{
-		_inner = inner ?? NullReporter.Instance;
-	}
-
-	/// <summary>Number of items processed concurrently (1 = sequential).</summary>
-	public int DegreeOfParallelism
-	{
-		get
-		{
-			lock (_lock)
-			{
-				return _degreeOfParallelism;
-			}
-		}
-		set
-		{
-			lock (_lock)
-			{
-				_degreeOfParallelism = Math.Max(1, value);
-			}
-		}
-	}
 
 	public void Log(LogLevel level, string message, Exception exception = null)
 	{
@@ -50,21 +24,13 @@ public sealed class PerformanceCollector : IGenerationReporter
 		{
 			lock (_lock)
 			{
-				_messages.Add(SecretMasker.MaskSecrets(message));
+				_messages.Add(message);
 			}
 		}
-
-		_inner.Log(level, message, exception);
 	}
 
 	public void StageStarted(Stage stage, int total)
 	{
-		_inner.StageStarted(stage, total);
-	}
-
-	public void ItemStarted(ItemKind kind, ItemPhase phase, string name)
-	{
-		_inner.ItemStarted(kind, phase, name);
 	}
 
 	public void ItemCompleted(ItemResult result)
@@ -81,8 +47,6 @@ public sealed class PerformanceCollector : IGenerationReporter
 
 			state.Add(result);
 		}
-
-		_inner.ItemCompleted(result);
 	}
 
 	public void StageCompleted(Stage stage, TimeSpan elapsed)
@@ -91,8 +55,6 @@ public sealed class PerformanceCollector : IGenerationReporter
 		{
 			_stages.Add(new KeyValuePair<Stage, TimeSpan>(stage, elapsed));
 		}
-
-		_inner.StageCompleted(stage, elapsed);
 	}
 
 	public void RequestCompleted(Stage stage, TimeSpan elapsed)
@@ -102,13 +64,13 @@ public sealed class PerformanceCollector : IGenerationReporter
 			_requestCount++;
 			_requestTime += elapsed;
 		}
-
-		_inner.RequestCompleted(stage, elapsed);
 	}
 
-	/// <summary>Builds a snapshot; <paramref name="wallClock" /> defaults to the time since the collector was created.</summary>
-	public PerformanceReport Build(TimeSpan? wallClock = null)
+	/// <summary>Builds a snapshot; <paramref name="degreeOfParallelism" /> is the number of items processed concurrently (1 = sequential), <paramref name="wallClock" /> defaults to the time since the collector was created.</summary>
+	public PerformanceReport Build(int degreeOfParallelism = 1, TimeSpan? wallClock = null)
 	{
+		int parallelism = Math.Max(1, degreeOfParallelism);
+
 		lock (_lock)
 		{
 			ItemSummary[] items = _items.Values
@@ -130,7 +92,7 @@ public sealed class PerformanceCollector : IGenerationReporter
 				Messages = _messages.ToArray(),
 				RequestCount = _requestCount,
 				RequestTime = _requestTime,
-				DegreeOfParallelism = _degreeOfParallelism,
+				DegreeOfParallelism = parallelism,
 				FilesWritten = files,
 				BytesWritten = items.Sum(item => item.Bytes),
 				EntitiesPerSecond = PerSecond(items.Count(item => item.Kind == ItemKind.Entity), entitiesStage),
@@ -141,7 +103,7 @@ public sealed class PerformanceCollector : IGenerationReporter
 				   .Take(SlowestCount)
 				   .ToArray(),
 				SumOfItemTimes = sumOfItemTimes,
-				SpeedUp = _degreeOfParallelism <= 1 || itemStages <= TimeSpan.Zero
+				SpeedUp = parallelism <= 1 || itemStages <= TimeSpan.Zero
 					? 1.0
 					: sumOfItemTimes / itemStages,
 				PeakWorkingSetBytes = GetPeakWorkingSet()

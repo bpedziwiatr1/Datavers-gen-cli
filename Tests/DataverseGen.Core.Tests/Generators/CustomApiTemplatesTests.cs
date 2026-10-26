@@ -21,7 +21,7 @@ public class CustomApiTemplatesTests
 		{
 			Template template = CustomApiTemplates.Load("Main", "Templates", false);
 
-			StringAssert.Contains(CustomApiCSharpGenerator.RenderRequestClass("Ns", Api, template),
+			StringAssert.Contains(CustomApiTestHost.RenderCSharpRequest(Api, template, "Ns"),
 				"public sealed class PingRequest : OrganizationRequest");
 		});
 	}
@@ -33,7 +33,7 @@ public class CustomApiTemplatesTests
 		{
 			Template template = CustomApiTemplates.Load("Custom", "Templates", false);
 
-			Assert.AreEqual("// Ns.PingRequest newping", CustomApiCSharpGenerator.RenderRequestClass("Ns", Api, template));
+			Assert.AreEqual("// Ns.PingRequest newping", CustomApiTestHost.RenderCSharpRequest(Api, template, "Ns"));
 		});
 	}
 
@@ -45,7 +45,7 @@ public class CustomApiTemplatesTests
 			Template template = CustomApiTemplates.Load("Custom", "Templates", true);
 
 			Assert.AreEqual("// PingRequest WebApiRequestOperationType.Action",
-				CustomApiTypeScriptGenerator.RenderRequestClass(Api, template));
+				CustomApiTestHost.RenderTypeScriptRequest(Api, template));
 		});
 	}
 
@@ -58,7 +58,7 @@ public class CustomApiTemplatesTests
 
 			Template template = CustomApiTemplates.Load("Custom", "Templates", true);
 
-			StringAssert.Contains(CustomApiTypeScriptGenerator.RenderRequestClass(Api, template),
+			StringAssert.Contains(CustomApiTestHost.RenderTypeScriptRequest(Api, template),
 				"export default class PingRequest implements IWebApiRequest");
 		});
 	}

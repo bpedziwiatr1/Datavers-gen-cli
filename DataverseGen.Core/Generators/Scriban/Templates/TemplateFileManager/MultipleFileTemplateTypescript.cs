@@ -8,15 +8,15 @@ public class MultipleFileTemplateTypescript : MultipleFileTemplateBase
 {
 	private string _relationshipsTemplateFilePath;
 
-	public MultipleFileTemplateTypescript(string templateName, string templateDir, IGenerationReporter reporter = null) :
-		base(templateName, templateDir, reporter) { }
+	public MultipleFileTemplateTypescript(string templateName, string templateDir, IGenerationReporter reporter = null, string baseDirectory = null) :
+		base(templateName, templateDir, reporter, baseDirectory) { }
 
 	internal Template RelationshipTemplate { get; private set; }
 
 	protected override void CheckFiles()
 	{
 		base.CheckFiles();
-		_relationshipsTemplateFilePath = $"{DirectoryPath}\\entity-relationship.sbncs";
+		_relationshipsTemplateFilePath = Path.Combine(DirectoryPath, "entity-relationship.sbncs");
 
 		if (!File.Exists(_relationshipsTemplateFilePath))
 		{
@@ -28,18 +28,18 @@ public class MultipleFileTemplateTypescript : MultipleFileTemplateBase
 	protected override void SetMainTemplate()
 	{
 		EntityTemplate =
-			Template.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_ts_entity));
+			TemplateParser.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_ts_entity), null);
 
 		EnumsTemplate =
-			Template.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_ts_enums));
+			TemplateParser.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_ts_enums), null);
 
 		RelationshipTemplate =
-			Template.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_ts_entity_relationship));
+			TemplateParser.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_ts_entity_relationship), null);
 	}
 
 	protected override void SetTemplateByFiles()
 	{
 		base.SetTemplateByFiles();
-		RelationshipTemplate = Template.Parse(File.ReadAllText(_relationshipsTemplateFilePath));
+		RelationshipTemplate = TemplateParser.ParseFile(_relationshipsTemplateFilePath);
 	}
 }
