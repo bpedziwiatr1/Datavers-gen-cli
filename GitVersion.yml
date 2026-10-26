@@ -1,39 +1,44 @@
-﻿next-version: 1.0
-mode: ContinuousDeployment
-legacy-semver-padding: 0
-build-metadata-padding: 0
-commits-since-version-source-padding: 0
+﻿next-version: 1.0.0
+# GitVersion 6 renamed deployment modes: v5 ContinuousDelivery -> ManualDeployment,
+# v5 ContinuousDeployment -> ContinuousDelivery.
+mode: ContinuousDelivery
+# Release tags are created as v<version> by the release workflow; an empty prefix keeps GitVersion
+# from using them as version source (that would reset the patch counter). Only plain x.y.z tags count.
+tag-prefix: ''
 assembly-versioning-scheme: MajorMinorPatchTag
 assembly-file-versioning-scheme: MajorMinorPatchTag
 ignore:
   sha: []
 branches:
   main:
-    mode: ContinuousDelivery
+    mode: ManualDeployment
     regex: main
     increment: Patch
-    prevent-increment-of-merged-branch-version: true
-    tag: ''
+    prevent-increment:
+      of-merged-branch: true
+    label: ''
     track-merge-target: false
     tracks-release-branches: false
     is-release-branch: true
   develop:
-    mode: ContinuousDeployment
+    mode: ContinuousDelivery
     regex: ^dev(elop)?(ment)?$
     increment: Patch
-    prevent-increment-of-merged-branch-version: false
-    tag: beta
+    prevent-increment:
+      of-merged-branch: false
+    label: beta
     track-merge-target: true
     tracks-release-branches: true
     source-branches: ['main']
-    is-release-branch:  true
+    is-release-branch: true
+  # The version comes from the branch name (release/x.y.z); GitVersion 6 would otherwise apply
+  # the increment on top of it, and merge-target tracking resets the pre-release counter.
   release:
-    mode: ContinuousDeployment
+    mode: ContinuousDelivery
     regex: (release)\/(\d+\.\d+\.\d+)
-    increment: Patch
-    prevent-increment-of-merged-branch-version: false
-    tag: release
-    track-merge-target: true
-    tracks-release-branches: true
+    increment: None
+    prevent-increment:
+      of-merged-branch: false
+    label: release
     source-branches: ['main']
-    is-release-branch:  true
+    is-release-branch: true

@@ -1,112 +1,107 @@
-﻿using System.Diagnostics;
-using DataverseGen.Core.Config;
-using DataverseGen.Core.DataConverter;
-using DataverseGen.Core.Generators.Scriban;
-using DataverseGen.Core.Metadata;
-using Newtonsoft.Json;
-using static DataverseGen.Core.ColorConsole;
+﻿using System.Runtime.InteropServices;
+using DataverseGen.Cli.Commands;
+using Spectre.Console;
+using Spectre.Console.Cli;
+using static DataverseGen.Cli.ConsoleOutput;
+
 namespace DataverseGen.Cli;
+
 //*
 // NOTE!!
 // DO NOT USE 'Trim unused assemblies'! It'll break json deserialization!
 //*//
 internal static class Program
 {
-    private const string DataverseGenConfigJson = "dataversegen.config.json";
+	private const string NoPauseArgument = "--no-pause";
 
-    private const string Title = @"
-    ____        __       _    __                       ______         
-   / __ \____ _/ /_____ | |  / /__  _____________     / ____/__  ____ 
-  / / / / __ `/ __/ __ `/ | / / _ \/ ___/ ___/ _ \   / / __/ _ \/ __ \
- / /_/ / /_/ / /_/ /_/ /| |/ /  __/ /  (__  )  __/  / /_/ /  __/ / / /
-/_____/\__,_/\__/\__,_/ |___/\___/_/  /____/\___/   \____/\___/_/ /_/                                                                       
-";
+	private static int Main(string[] args)
+	{
+		// Pause and resize only when started in its own console window (e.g. double-clicked exe),
+		// not when run from an existing terminal (e.g. as a dotnet tool).
+		bool ownConsoleWindow = IsOwnConsoleWindow();
+		bool pauseOnExit = ownConsoleWindow
+			&& !Console.IsInputRedirected
+			&& !args.Contains(NoPauseArgument, StringComparer.OrdinalIgnoreCase);
 
-    private static ConfigModel GetConfig()
-    {
-        if (!File.Exists(DataverseGenConfigJson))
-        {
-            throw new FileNotFoundException("Config not found in current directory",
-                DataverseGenConfigJson);
-        }
+		try
+		{
+			Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-        string json = File.ReadAllText(DataverseGenConfigJson);
-        return JsonConvert.DeserializeObject<ConfigModel>(json);
-    }
+			if (ownConsoleWindow)
+			{
+				TrySetWindowSize(140, 30);
+			}
 
-    private static void Main(string[] args)
-    {
-        try
-        {
-            Console.SetWindowSize(140, 30);
-            WriteLine(Title);
-            WriteVersion();
+			CommandApp<GenerateCommand> app = new();
+			app.Configure(config =>
+			{
+				config.SetApplicationName("dataversegen");
+				config.AddCommand<GenerateCommand>("generate")
+					.WithDescription("Generate code from Dataverse metadata (default command).");
+				config.AddCommand<InitCommand>("init")
+					.WithDescription("Create an example dataversegen.config.json in the current directory.");
+				config.AddCommand<TemplatesCommand>("templates")
+					.WithDescription("Copy the built-in Scriban templates to the current directory.");
+			});
 
-            ConfigModel config = GetConfig();
+			return app.Run(NormalizeArguments(args));
+		}
+		finally
+		{
+			if (pauseOnExit)
+			{
+				WriteLine("Press any key to exit", Color.Grey);
+				Console.ReadKey();
+			}
+		}
+	}
 
-            DataverseMetadataConverter dataConverter = new(
-                new DataverseConnector
-                (config.ConnectionString,
-                    config.EnableConnectionStringValidation),
-                config.ThrowOnEntityNotFound,
-                config.Entities
-            );
-            MappingEntity[] data = dataConverter.GetMappedEntities();
-            WriteLine(@"Finish Load data");
-            Context context = new()
-            {
-                Namespace = config.Namespace,
-                Entities = data
-            };
+	/// <summary>Drops <c>--no-pause</c> and maps a leading <c>--init|-i</c> / <c>--templates|-t</c> flag to its command.</summary>
+	internal static string[] NormalizeArguments(string[] args)
+	{
+		string[] rest = args
+			.Where(arg => !arg.Equals(NoPauseArgument, StringComparison.OrdinalIgnoreCase))
+			.ToArray();
 
-            WriteLine(@"Start generator");
-            switch (config.TemplateEngine.Name)
-            {
-                case "scriban":
-                    ScribanRun(config, context);
-                    break;
-                default:
-                    WriteLine(
-                        $@"Unsupported generator {config.TemplateEngine}, run scriban");
-                    ScribanRun(config, context);
-                    break;
-            }
-        }
-        catch (Exception e)
-        {
-            WriteError(e.ToString());
-            WriteError(@"#StackTrace:");
-            WriteError(e.StackTrace);
-            throw;
-        }
-        finally
-        {
-            WriteSuccess(@"Bye Bye, see you next time Press any Key to exit");
-            Console.ReadKey();
-        }
-    }
+		if (rest.Length == 0)
+		{
+			return rest;
+		}
 
-    private static void WriteVersion()
-    {
-        ProcessModule? assembly = Process.GetCurrentProcess().MainModule;
+		string? command = rest[0].ToLowerInvariant() switch
+		{
+			"--init" or "-i" => "init",
+			"--templates" or "-t" => "templates",
+			_ => null
+		};
 
-        if (assembly is null)
-        {
-            WriteLine("Unable to get main module version.");
-            return;
-        }
-        FileVersionInfo assemblyFileVersion = assembly.FileVersionInfo;
-        WriteLine($"Runtime Version: {assemblyFileVersion.FileVersion}");
-    }
+		return command is null ? rest : [command, .. rest.Skip(1)];
+	}
 
-    private static void ScribanRun(ConfigModel config, Context context)
-    {
-        ScribanGenerator scribanGenerator = new(
-            config.TemplateName,
-            config.TemplateDirectoryName,
-            config.OutDirectory,
-            context,
-            config.TemplateEngine);
-        scribanGenerator.GenerateTemplate();
-    }
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern uint GetConsoleProcessList(uint[] processList, uint processCount);
+
+	private static bool IsOwnConsoleWindow()
+	{
+		if (Console.IsOutputRedirected)
+		{
+			return false;
+		}
+
+		uint[] processList = new uint[2];
+
+		return GetConsoleProcessList(processList, (uint)processList.Length) == 1;
+	}
+
+	private static void TrySetWindowSize(int width, int height)
+	{
+		try
+		{
+			Console.SetWindowSize(width, height);
+		}
+		catch (Exception e) when (e is IOException or ArgumentOutOfRangeException or PlatformNotSupportedException)
+		{
+			// Window size is cosmetic; ignore hosts that do not allow resizing.
+		}
+	}
 }

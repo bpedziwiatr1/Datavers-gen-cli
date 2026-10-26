@@ -1,4 +1,6 @@
-﻿namespace DataverseGen.Core.Metadata;
+using DataverseGen.Core.CustomApi;
+
+namespace DataverseGen.Core.Metadata;
 
 [Serializable]
 public class Context
@@ -8,4 +10,6 @@ public class Context
 	public GeneratorInfo Info { get; set; } = new();
 
 	public string Namespace { get; set; }
+
+	public CustomApiModel[] CustomApis { get; set; } = Array.Empty<CustomApiModel>();
 }

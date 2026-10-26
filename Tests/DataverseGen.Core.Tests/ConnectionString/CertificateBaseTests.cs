@@ -15,4 +15,29 @@ public class CertificateBaseTests
 		new ConnectionStringValidator(connectionString)
 		   .Validate();
 	}
+
+	[TestMethod]
+	[DataRow("THUMBPRINT")]
+	[DataRow("certthumbprint")]
+	public void Certificate_ThumbprintInAnyCase_Success(string key)
+	{
+		new ConnectionStringValidator(
+			$"AuthType=Certificate;url=https://contoso.crm.dynamics.com;{key}=ABC123;ClientId=abc;").Validate();
+	}
+
+	[TestMethod]
+	public void Certificate_MissingThumbprint_Throws()
+	{
+		Assert.ThrowsExactly<Exception>(() =>
+			new ConnectionStringValidator(
+				"AuthType=Certificate;url=https://contoso.crm.dynamics.com;ClientId=abc;").Validate());
+	}
+
+	[TestMethod]
+	public void Certificate_MissingClientId_Throws()
+	{
+		Assert.ThrowsExactly<Exception>(() =>
+			new ConnectionStringValidator(
+				"AuthType=Certificate;url=https://contoso.crm.dynamics.com;thumbprint=ABC123;").Validate());
+	}
 }

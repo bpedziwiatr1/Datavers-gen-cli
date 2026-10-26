@@ -2,11 +2,29 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <ApplicationIcon>application_icon.ico</ApplicationIcon>
     </PropertyGroup>
+
+    <!-- dotnet tool package (dotnet pack); the exe is still produced by dotnet publish -->
+    <PropertyGroup>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>dataversegen</ToolCommandName>
+        <PackageId>DataverseGen.Tool</PackageId>
+        <Authors>Bartosz Pędziwiatr-Ratajczak</Authors>
+        <Description>Generates early-bound C# and TypeScript code from Dataverse metadata using Scriban templates.</Description>
+        <PackageTags>dataverse;powerplatform;dynamics;codegen;early-bound;scriban</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://github.com/bpedziwiatr1/Datavers-gen-cli</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <None Include="..\README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
       <PlatformTarget>x64</PlatformTarget>
@@ -14,14 +32,19 @@
 
     <ItemGroup>
       <ProjectReference Include="..\DataverseGen.Core\DataverseGen.Core.csproj" />
+      <InternalsVisibleTo Include="DataverseGen.Cli.Tests" />
     </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="GitVersion.MsBuild">
-        <Version>5.12.0</Version>
+        <Version>6.8.2</Version>
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
+      <PackageReference Include="Meziantou.Framework.Win32.CredentialManager">
+        <Version>3.0.6</Version>
+      </PackageReference>
+      <PackageReference Include="Spectre.Console.Cli" Version="0.57.2" />
     </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using DataverseGen.Core.Reporting;
 using Scriban;
 
 namespace DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
@@ -8,8 +9,8 @@ public class MultipleFileTemplateCsharp : MultipleFileTemplateBase
 	private string _fieldsTemplateFilePath;
 	private string _xrmServiceContextTemplateFilePath;
 
-	public MultipleFileTemplateCsharp(string templateName, string templateDirName) :
-		base(templateName, templateDirName) { }
+	public MultipleFileTemplateCsharp(string templateName, string templateDirName, IGenerationReporter reporter = null, string baseDirectory = null) :
+		base(templateName, templateDirName, reporter, baseDirectory) { }
 
 	internal Template XrmContextTemplate { get; private set; }
 
@@ -18,8 +19,8 @@ public class MultipleFileTemplateCsharp : MultipleFileTemplateBase
 	protected override void CheckFiles()
 	{
 		base.CheckFiles();
-		_xrmServiceContextTemplateFilePath = $"{DirectoryPath}\\xrmservicecontext.sbncs";
-		_fieldsTemplateFilePath = $"{DirectoryPath}\\fields.sbncs";
+		_xrmServiceContextTemplateFilePath = Path.Combine(DirectoryPath, "xrmservicecontext.sbncs");
+		_fieldsTemplateFilePath = Path.Combine(DirectoryPath, "fields.sbncs");
 
 		if (!File.Exists(_xrmServiceContextTemplateFilePath))
 		{
@@ -37,16 +38,16 @@ public class MultipleFileTemplateCsharp : MultipleFileTemplateBase
 	{
 		base.SetMainTemplate();
 		XrmContextTemplate =
-			Template.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_xrmservicecontext));
+			TemplateParser.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_xrmservicecontext), null);
 
 		FieldsTemplate =
-			Template.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_fields));
+			TemplateParser.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_fields), null);
 	}
 
 	protected override void SetTemplateByFiles()
 	{
 		base.SetTemplateByFiles();
-		XrmContextTemplate = Template.Parse(File.ReadAllText(_xrmServiceContextTemplateFilePath));
-		FieldsTemplate = Template.Parse(File.ReadAllText(_fieldsTemplateFilePath));
+		XrmContextTemplate = TemplateParser.ParseFile(_xrmServiceContextTemplateFilePath);
+		FieldsTemplate = TemplateParser.ParseFile(_fieldsTemplateFilePath);
 	}
 }

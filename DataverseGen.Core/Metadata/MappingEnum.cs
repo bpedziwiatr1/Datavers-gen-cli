@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Globalization;
+using System.Text.RegularExpressions;
 using DataverseGen.Core.Extensions;
 using Microsoft.Xrm.Sdk.Metadata;
 
@@ -8,6 +9,10 @@ namespace DataverseGen.Core.Metadata;
 public class MappingEnum
 {
 	public string DisplayName { get; set; }
+
+	public string Description { get; set; }
+
+	public string DescriptionXmlSafe => Description?.XmlEscape();
 
 	public MapperEnumItem[] Items { get; set; }
 
@@ -28,9 +33,11 @@ public class MappingEnum
 			DisplayName =
 				MetadataNamingExtensions.GetProperVariableName(
 					MetadataNamingExtensions.GetProperVariableName(pickList.SchemaName)),
+			Description = pickList.Description?.UserLocalizedLabel?.Label,
 			Items =
 				pickList.OptionSet.Options
-				   .Where(p => p.Label.UserLocalizedLabel != null)
+				   .Where(p => p.Label?.UserLocalizedLabel != null)
+				   .OrderBy(o => o.Value)
 				   .Select(o => new MapperEnumItem
 					{
 						Attribute = new CrmPicklistAttribute
@@ -38,7 +45,9 @@ public class MappingEnum
 							DisplayName = o.Label.UserLocalizedLabel.Label,
 							Value = o.Value ?? 1
 						},
-						Name = MetadataNamingExtensions.GetProperVariableName(o.Label.UserLocalizedLabel.Label)
+						Name = MetadataNamingExtensions.GetProperVariableName(o.Label.UserLocalizedLabel.Label),
+						Label = o.Label.UserLocalizedLabel.Label,
+						Description = o.Description?.UserLocalizedLabel?.Label
 					})
 				   .ToArray()
 		};
@@ -55,6 +64,7 @@ public class MappingEnum
 			DisplayName =
 				MetadataNamingExtensions.GetProperVariableName(
 					MetadataNamingExtensions.GetProperVariableName(twoOption.SchemaName)),
+			Description = twoOption.Description?.UserLocalizedLabel?.Label,
 			Items = new MapperEnumItem[2]
 		};
 
@@ -81,31 +91,99 @@ public class MappingEnum
 				duplicates[enumItem.Name] = 1;
 			}
 		}
+
+		RenameDuplicateTsKeys(enm);
+	}
+
+	private static void RenameDuplicateTsKeys(MappingEnum enm)
+	{
+		Dictionary<string, int> duplicates = new();
+
+		foreach (MapperEnumItem enumItem in enm.Items)
+		{
+			if (duplicates.ContainsKey(enumItem.TsKeyText))
+			{
+				duplicates[enumItem.TsKeyText] += 1;
+				enumItem.TsKeyText = $@"{enumItem.TsKeyText}_{duplicates[enumItem.TsKeyText]}";
+			}
+			else
+			{
+				duplicates[enumItem.TsKeyText] = 1;
+			}
+		}
 	}
 
 	private static MapperEnumItem MapBoolOption(OptionMetadata option)
 	{
-		Debug.Assert(option.Value != null, "option.Value != null ");
-		MapperEnumItem results = new()
+		if (option.Value == null)
+		{
+			throw new InvalidOperationException("Boolean option value is null.");
+		}
+
+		string label = option.Label?.UserLocalizedLabel?.Label
+			?? throw new InvalidOperationException("Boolean option label or UserLocalizedLabel is null.");
+
+		return new MapperEnumItem
 		{
 			Attribute = new CrmPicklistAttribute
 			{
-				DisplayName = option.Label.UserLocalizedLabel.Label,
+				DisplayName = label,
 				Value = (int)option.Value
 			},
-			Name = MetadataNamingExtensions.GetProperVariableName(option.Label.UserLocalizedLabel.Label)
+			Name = MetadataNamingExtensions.GetProperVariableName(label),
+			Label = label,
+			Description = option.Description?.UserLocalizedLabel?.Label
 		};
-
-		return results;
 	}
 }
 
 [Serializable]
-public class MapperEnumItem
+public partial class MapperEnumItem
 {
+	private string _tsKeyText;
+
 	public CrmPicklistAttribute Attribute { get; set; }
 
 	public string Name { get; set; }
 
+	public string Label { get; set; }
+
+	public string EscapedLabel => EscapeString(Label);
+
+	public string TsKeyText
+	{
+		get => _tsKeyText ??= BuildTsKeyText(Label, Name);
+		set => _tsKeyText = value;
+	}
+
+	public string TsKey => TsIdentifierRegex().IsMatch(TsKeyText)
+		? TsKeyText
+		: $"\"{EscapeString(TsKeyText)}\"";
+
+	public string Description { get; set; }
+
+	public string DescriptionXmlSafe => Description?.XmlEscape();
+
 	public int Value => Attribute.Value;
+
+	private static string BuildTsKeyText(string label, string fallbackName)
+	{
+		string trimmed = label?.Trim();
+
+		return string.IsNullOrEmpty(trimmed) || double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+			? fallbackName
+			: trimmed;
+	}
+
+	private static string EscapeString(string text)
+	{
+		return text?
+		   .Replace("\\", "\\\\")
+		   .Replace("\"", "\\\"")
+		   .Replace("\r", "\\r")
+		   .Replace("\n", "\\n");
+	}
+
+	[GeneratedRegex("^[A-Za-z_$][A-Za-z0-9_$]*$")]
+	private static partial Regex TsIdentifierRegex();
 }

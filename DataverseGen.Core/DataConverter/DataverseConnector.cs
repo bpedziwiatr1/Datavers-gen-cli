@@ -1,33 +1,72 @@
-﻿using DataverseGen.Core.ConnectionString;
+﻿using System.Diagnostics;
+using DataverseGen.Core.ConnectionString;
+using DataverseGen.Core.Reporting;
 using Microsoft.PowerPlatform.Dataverse.Client;
-using static DataverseGen.Core.ColorConsole;
 
 namespace DataverseGen.Core.DataConverter;
 
-public class DataverseConnector
+public class DataverseConnector : IDisposable
 {
+	private const int MaxDefaultParallelism = 8;
+
+	private readonly object _connectLock = new();
 	private readonly string _connectionString;
 	private readonly bool _isConnectionStringValidatorEnabled;
+	private readonly IGenerationReporter _reporter;
+	private bool _disposed;
 
 	public DataverseConnector(
 		string connectionString,
-		bool isConnectionStringValidatorEnabled)
+		bool isConnectionStringValidatorEnabled,
+		IGenerationReporter reporter = null)
 	{
 		_connectionString = connectionString;
 		_isConnectionStringValidatorEnabled = isConnectionStringValidatorEnabled;
+		_reporter = reporter ?? NullReporter.Instance;
 		WriteConnectorInfo();
 		ValidateConnectionStringIfEnabled();
 	}
 
 	public ServiceClient OrganizationService { get; private set; }
 
+	/// <summary>Degree of parallelism the server recommends (known after connecting); 1 when not connected.</summary>
+	public int RecommendedDegreesOfParallelism => OrganizationService?.RecommendedDegreesOfParallelism ?? 1;
+
+	/// <summary>An explicit request wins; otherwise the server recommendation clamped to 1..8.</summary>
+	public static int ResolveDegreeOfParallelism(int? requested, int recommended)
+	{
+		return requested is > 0 ? requested.Value : Math.Clamp(recommended, 1, MaxDefaultParallelism);
+	}
+
+	/// <summary>Connects unless a connection already exists; safe to call from several converters.</summary>
+	public void EnsureConnected()
+	{
+		lock (_connectLock)
+		{
+			if (OrganizationService == null)
+			{
+				Connect();
+			}
+		}
+	}
+
+	internal ServiceClientPool CreatePool(int degreeOfParallelism)
+	{
+		EnsureConnected();
+
+		return new ServiceClientPool(OrganizationService, degreeOfParallelism);
+	}
+
 	public void Connect()
 	{
-		WriteInfo(@"Waiting for connection...");
+		Stopwatch stopper = Stopwatch.StartNew();
+		_reporter.StageStarted(Stage.Connect, 1);
+		_reporter.Log(LogLevel.Info, "Waiting for connection...");
 		OrganizationService = new ServiceClient(_connectionString);
 		WaitForConnection();
 
 		CheckIfThereWasErrorOnConnecting();
+		_reporter.StageCompleted(Stage.Connect, stopper.Elapsed);
 	}
 
 	private void CheckIfThereWasErrorOnConnecting()
@@ -37,10 +76,8 @@ public class DataverseConnector
 			return;
 		}
 
-		string exceptionMessage =
-			$"Connection did not connect with {_connectionString}. LastCrmError: {OrganizationService.LastError} | {OrganizationService.LastException}";
-
-		WriteError(exceptionMessage);
+		string exceptionMessage = SecretMasker.MaskSecrets(
+			$"Connection did not connect with {_connectionString}. LastCrmError: {OrganizationService.LastError} | {OrganizationService.LastException}");
 
 		throw new Exception(exceptionMessage);
 	}
@@ -59,12 +96,10 @@ public class DataverseConnector
 
 		while (!OrganizationService.IsReady)
 		{
-			WriteInfo($@"Waiting for connection... {waitForConnection}ms");
+			_reporter.Log(LogLevel.Debug, $@"Waiting for connection... {waitForConnection}ms");
 
 			if (OrganizationService.LastException != null)
 			{
-				WriteError(OrganizationService.LastException.Message);
-
 				throw OrganizationService.LastException;
 			}
 
@@ -72,8 +107,19 @@ public class DataverseConnector
 		}
 	}
 
+	public void Dispose()
+	{
+		if (_disposed)
+		{
+			return;
+		}
+
+		OrganizationService?.Dispose();
+		_disposed = true;
+	}
+
 	private void WriteConnectorInfo()
 	{
-		WriteInfo($"Validate ConnectionsString {_isConnectionStringValidatorEnabled}");
+		_reporter.Log(LogLevel.Debug, $"Validate ConnectionsString {_isConnectionStringValidatorEnabled}");
 	}
 }

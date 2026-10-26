@@ -254,9 +254,23 @@ namespace {{ namespace }}
 	 	public class Enums
 		{
 		{{for enm in entity.enums}}
+			{{if enm.description_xml_safe != null && enm.description_xml_safe != ""}}
+			/// <summary>
+			/// {{enm.description_xml_safe}}
+			/// </summary>
+			{{end}}
+			[DataContract]
+			{{info.generated_code_attribute}}
 			public enum {{enm.display_name}}
 			{
 				{{for item in enm.items}}
+				{{if item.description_xml_safe != null && item.description_xml_safe != ""}}
+				/// <summary>
+				/// {{item.description_xml_safe}}
+				/// </summary>
+				{{end}}
+				[EnumMember]
+				[Description("{{item.escaped_label}}")]
 				{{item.name}} = {{item.value}},
 				{{end}}
 			}
@@ -267,7 +281,7 @@ namespace {{ namespace }}
 			{{info.generated_code_attribute}}
 			public class Fields
 			{
-				public const string SchemaName = "{{entity.attribute.logical_name}}";
+				public const string TableSchemaName = "{{entity.attribute.logical_name}}";
 	
 				#region Fields.{{entity.attribute.logical_name}}	
 				{{for field in entity.fields}}			

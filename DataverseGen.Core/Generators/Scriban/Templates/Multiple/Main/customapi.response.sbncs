@@ -1,0 +1,16 @@
+using System;
+using Microsoft.Xrm.Sdk;
+
+namespace {{namespace}};
+
+public sealed class {{class_name}} : OrganizationResponse
+{
+	public static class ParameterNames
+	{
+{{for p in properties}}		public const string {{p.property_name}} = "{{p.request_property_name}}";
+{{end}}	}
+{{for p in properties}}
+	/// <summary>{{p.summary}}</summary>
+	public {{p.type}} {{p.property_name}} => Results.TryGetValue(ParameterNames.{{p.property_name}}, out object value) ? ({{p.type}})value : default;
+{{end}}
+}

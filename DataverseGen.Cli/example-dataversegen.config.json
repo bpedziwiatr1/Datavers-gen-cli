@@ -1,12 +1,18 @@
 {
   "Entities": [ "account", "contact" ],
-  "ConnectionString": "AuthType=Office365;Username=@.onmicrosoft.com;Password=;Url=",
+  "CustomApis": [ "newupdatestatus" ],
+  "ConnectionString": "AuthType=ClientSecret;Url={url};ClientId={ClientId};ClientSecret={ClientSecret}",
   "Namespace": "sad.CRM.Test",
-  "OutDirectory": "out-crm",
+  "OutDirectory": "out-crm", // fallback when EntitiesOutDirectory is not set
+  "EntitiesOutDirectory": "out-crm/entities", // optional
+  "CustomApiOutDirectory": "out-crm/customapi", // optional, default <entities dir>/customapi
+  "LegacyEntityFileNames": false, // optional, true = <name>.cs / <name>.attributes.ts instead of <name>.entity.cs|ts
+  "ClearOutputDirectory": true, // optional, default true = remove stale generated files from the output folders
+  "PreserveOptionSetLabels": false, // optional, default false = TypeScript enum keys use the exact CRM option labels (quoted when needed)
   "TemplateName": "Main",
-  "EnableConnectionStringValidation": true, //optional
-  "ThrowOnEntityNotFound": true, //optional
-  "TemplateDirectoryName": "Templates", //optional only dir name
+  "EnableConnectionStringValidation": true, // optional
+  "ThrowOnEntityNotFound": true, // optional
+  "TemplateDirectoryName": "Templates", // optional only dir name
   "TemplateEngine": {
     "IsSingleOutput": true,
     "Name": "scriban",
