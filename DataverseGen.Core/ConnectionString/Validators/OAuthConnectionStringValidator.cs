@@ -8,14 +8,24 @@ public class OAuthConnectionStringValidator : BaseConnectionStringValidator,
 
 	public bool Validate()
 	{
-		CheckIfPasswordOrIntegratedSecurityIsPresent();
-		CheckIfUserNameIsPresent();
 		CheckIfUrlIsPresentAndValid();
 		CheckIfAppIdIsPresent();
 		CheckIfRedirectUriIsPresent();
-		CheckIfTokenCacheStorePathIsPresent();
+		CheckIfUserNameIsPresentWhenPasswordIsGiven();
 
 		return true;
+	}
+
+	private void CheckIfUserNameIsPresentWhenPasswordIsGiven()
+	{
+		bool isPasswordTokenFound = ValidatorTokenHelper.TryCheckIfTokenIsPresentWithValue(ConnectionStringTokens,
+			ConnectionStringConst.Password,
+			out KeyValuePair<string, string> _);
+
+		if (isPasswordTokenFound)
+		{
+			CheckIfUserNameIsPresent();
+		}
 	}
 
 	private void CheckIfAppIdIsPresent()
@@ -27,10 +37,5 @@ public class OAuthConnectionStringValidator : BaseConnectionStringValidator,
 	private void CheckIfRedirectUriIsPresent()
 	{
 		CheckIfTokenIsPresentWithValue(ConnectionStringConst.RedirectUri);
-	}
-
-	private void CheckIfTokenCacheStorePathIsPresent()
-	{
-		CheckIfTokenIsPresentWithValue(ConnectionStringConst.TokenCacheStorePath);
 	}
 }

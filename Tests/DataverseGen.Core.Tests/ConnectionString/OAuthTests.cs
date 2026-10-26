@@ -29,6 +29,17 @@ public class OAuthTests
   RedirectUri=app://58145B91-0C36-4500-8554-080854F2AC97;
   TokenCacheStorePath=c:\MyTokenCache\msal_cache.data;
   LoginPrompt=Auto")]
+	[DataRow(@"AuthType=OAuth;
+  Url=https://org.crm4.dynamics.com;
+  AppId=51f81489-12ee-4a9e-aaae-a2591f45987d;
+  RedirectUri=app://58145B91-0C36-4500-8554-080854F2AC97;
+  LoginPrompt=Auto")]
+	[DataRow(@"AuthType=OAuth;
+  Username=jsmith@contoso.onmicrosoft.com;
+  Url=https://org.crm4.dynamics.com;
+  AppId=51f81489-12ee-4a9e-aaae-a2591f45987d;
+  RedirectUri=app://58145B91-0C36-4500-8554-080854F2AC97;
+  LoginPrompt=Auto")]
 	public void OAuth_ConnectionString_Success(string connectionString)
 	{
 		new ConnectionStringValidator(connectionString)
@@ -45,30 +56,10 @@ public class OAuthTests
 	}
 
 	[TestMethod]
-	public void OAuth_MissingUsername_Throws()
+	public void OAuth_PasswordWithoutUsername_Throws()
 	{
 		const string cs =
 			@"AuthType=OAuth;Password=passcode;Url=https://contoso.crm.dynamics.com;" +
-			@"AppId=abc;RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
-	}
-
-	[TestMethod]
-	public void OAuth_NoPasswordAndNoIntegratedSecurity_Throws()
-	{
-		const string cs =
-			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;" +
-			@"Url=https://contoso.crm.dynamics.com;" +
-			@"AppId=abc;RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
-	}
-
-	[TestMethod]
-	public void OAuth_IntegratedSecurityFalseWithoutPassword_Throws()
-	{
-		const string cs =
-			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Integrated Security=false;" +
-			@"Url=https://contoso.crm.dynamics.com;" +
 			@"AppId=abc;RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
 		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
@@ -90,16 +81,6 @@ public class OAuthTests
 			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Password=passcode;" +
 			@"Url=https://contoso.crm.dynamics.com;" +
 			@"AppId=abc;TokenCacheStorePath=c:\cache;";
-		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
-	}
-
-	[TestMethod]
-	public void OAuth_MissingTokenCacheStorePath_Throws()
-	{
-		const string cs =
-			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Password=passcode;" +
-			@"Url=https://contoso.crm.dynamics.com;" +
-			@"AppId=abc;RedirectUri=app://abc;";
 		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());
 	}
 }
