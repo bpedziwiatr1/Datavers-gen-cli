@@ -5,7 +5,7 @@ internal static class GeneratorPaths
 {
 	public static string ResolveOutput(string outPath, string baseDirectory = null)
 	{
-		return Path.GetFullPath(Path.Combine(baseDirectory ?? Directory.GetCurrentDirectory(), outPath ?? string.Empty))
+		return Path.GetFullPath(Combine(baseDirectory, outPath))
 		   .TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
 	}
 
@@ -18,7 +18,17 @@ internal static class GeneratorPaths
 
 	public static string ResolveTemplateDirectory(string templateDirName, string templateName, string baseDirectory = null)
 	{
-		return Path.GetFullPath(Path.Combine(baseDirectory ?? Directory.GetCurrentDirectory(), templateDirName ?? string.Empty,
-			templateName ?? string.Empty)) + Path.DirectorySeparatorChar;
+		return Path.GetFullPath(Path.Combine(Combine(baseDirectory, templateDirName), templateName ?? string.Empty))
+			+ Path.DirectorySeparatorChar;
+	}
+
+	private static string Combine(string baseDirectory, string path)
+	{
+		string root = baseDirectory ?? Directory.GetCurrentDirectory();
+		string relative = path ?? string.Empty;
+
+		return Path.IsPathFullyQualified(relative)
+			? relative
+			: Path.Combine(root, relative.TrimStart('\\', '/'));
 	}
 }

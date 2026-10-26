@@ -64,10 +64,12 @@ public class OAuthTests
 	}
 
 	[TestMethod]
-	public void OAuth_IntegratedSecurityFalseWithoutPassword_Throws()
+	[DataRow("false")]
+	[DataRow("False")]
+	public void OAuth_IntegratedSecurityFalseWithoutPassword_Throws(string value)
 	{
-		const string cs =
-			@"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Integrated Security=false;" +
+		string cs =
+			$"AuthType=OAuth;Username=jsmith@contoso.onmicrosoft.com;Integrated Security={value};" +
 			@"Url=https://contoso.crm.dynamics.com;" +
 			@"AppId=abc;RedirectUri=app://abc;TokenCacheStorePath=c:\cache;";
 		Assert.ThrowsExactly<Exception>(() => new ConnectionStringValidator(cs).Validate());

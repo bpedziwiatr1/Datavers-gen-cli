@@ -1,6 +1,6 @@
 ﻿namespace DataverseGen.Core.ConnectionString.Validators;
 
-public class AdConnectionStringValidator : BaseConnectionStringValidator,
+internal class AdConnectionStringValidator : BaseConnectionStringValidator,
 	IConnectionStringValidator
 {
 	public AdConnectionStringValidator(IDictionary<string, string> connectionStringTokens) :

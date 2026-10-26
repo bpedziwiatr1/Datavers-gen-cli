@@ -51,7 +51,7 @@ public partial class ConnectionStringValidator
 	private bool InternalValidate()
 	{
 		IDictionary<string, string> connectionStringTokens = ParseConnectionStrings()
-		   .ToDictionary(k => k.Key, v => v.Value);
+		   .ToDictionary(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
 
 		IConnectionStringValidator validator = ConnectionStringValidatorFactory
 		   .CreateValidator(connectionStringTokens);

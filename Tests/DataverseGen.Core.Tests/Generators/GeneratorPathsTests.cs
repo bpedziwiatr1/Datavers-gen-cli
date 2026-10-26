@@ -24,6 +24,16 @@ public class GeneratorPathsTests
 	}
 
 	[TestMethod]
+	[DataRow("\\out\\entities")]
+	[DataRow("/out/entities")]
+	public void ResolveOutput_LeadingSeparator_IsRelativeToBaseDirectory(string outPath)
+	{
+		string path = GeneratorPaths.ResolveOutput(outPath, Base);
+
+		Assert.AreEqual(Path.Combine(Base, "out", "entities") + Path.DirectorySeparatorChar, path);
+	}
+
+	[TestMethod]
 	public void ResolveCustomApi_NoOverride_UsesCustomApiFolderInsideOutput()
 	{
 		string output = GeneratorPaths.ResolveOutput("out", Base);

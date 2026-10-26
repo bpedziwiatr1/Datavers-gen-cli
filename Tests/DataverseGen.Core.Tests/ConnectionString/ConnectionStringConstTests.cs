@@ -12,6 +12,9 @@ public class ConnectionStringConstTests
 	[DataRow("Certificate", ConnectionType.Certificate)]
 	[DataRow("ClientSecret", ConnectionType.ClientSecret)]
 	[DataRow("Office365", ConnectionType.Office365)]
+	[DataRow("oauth", ConnectionType.OAuth)]
+	[DataRow("OAUTH", ConnectionType.OAuth)]
+	[DataRow("office365", ConnectionType.Office365)]
 	public void Map_ValidAuthType_ReturnsExpectedConnectionType(string authType, ConnectionType expected)
 	{
 		ConnectionType result = ConnectionStringConst.Map(authType);
@@ -21,8 +24,6 @@ public class ConnectionStringConstTests
 
 	[TestMethod]
 	[DataRow("Basic")]
-	[DataRow("oauth")]
-	[DataRow("OAUTH")]
 	[DataRow("")]
 	public void Map_UnknownAuthType_ThrowsNotImplementedException(string authType)
 	{
@@ -47,6 +48,16 @@ public class ConnectionStringConstTests
 		string result = ConnectionStringConst.GetToken(tokens, ConnectionStringConst.Auth);
 
 		Assert.AreEqual("AuthenticationType", result);
+	}
+
+	[TestMethod]
+	public void GetToken_DifferentCase_ReturnsKeyAsStored()
+	{
+		var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "authtype", "AD" } };
+
+		string result = ConnectionStringConst.GetToken(tokens, ConnectionStringConst.Auth);
+
+		Assert.IsTrue(tokens.ContainsKey(result));
 	}
 
 	[TestMethod]
