@@ -23,11 +23,13 @@ public class CustomApiScribanGenerator : ICustomApiGenerator
 		Template template = CustomApiTemplates.Load(session.TemplateName,
 			session.TemplateDirName,
 			language.IsTypeScript,
-			session.Reporter);
+			session.Reporter,
+			session.BaseDirectory);
 		Template responseTemplate = CustomApiTemplates.LoadResponse(session.TemplateName,
 			session.TemplateDirName,
 			language.IsTypeScript,
-			session.Reporter);
+			session.Reporter,
+			session.BaseDirectory);
 
 		Parallel.ForEach(session.Context.CustomApis,
 			session.CreateParallelOptions(cancellationToken),

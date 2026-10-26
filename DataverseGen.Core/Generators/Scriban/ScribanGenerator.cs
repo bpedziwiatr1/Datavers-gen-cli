@@ -18,7 +18,8 @@ public class ScribanGenerator : BaseGenerator
 		bool legacyEntityFileNames = false,
 		IGenerationReporter reporter = null,
 		int degreeOfParallelism = 1,
-		bool clearOutputDirectory = false)
+		bool clearOutputDirectory = false,
+		string baseDirectory = null)
 		: base(templateName,
 			templateDirName,
 			outPath,
@@ -27,7 +28,8 @@ public class ScribanGenerator : BaseGenerator
 			customApiOutPath,
 			reporter,
 			degreeOfParallelism,
-			clearOutputDirectory)
+			clearOutputDirectory,
+			baseDirectory)
 	{
 		_legacyEntityFileNames = legacyEntityFileNames;
 	}

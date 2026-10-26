@@ -63,7 +63,7 @@ Core never writes to the console. All output goes through `IGenerationReporter` 
 - `TemplateName = "Main"` (case-insensitive) uses the embedded templates; any other name loads files from `<CWD>/<TemplateDirectoryName>/<TemplateName>/` (must contain `entity.sbncs` and `enums.sbncs`, plus the type-specific extras). `build.ps1` copies `Multiple/Main` and `Multiple/TS-Main` into the package as example templates.
 - Templates see the C# model through Scriban's `ScriptObject.Import`, which renames members to snake_case (e.g. `entity.logical_name`, `info.welcome_xml`). Renaming a model property changes the template-facing name.
 - Rendered output goes through `RemoveEmptyLines` and multi-file output is normalized to CRLF.
-- Output paths are built with backslashes (`{CWD}\{OutDirectory}\`), so generation assumes Windows.
+- Output and template paths are resolved by `Generators/GeneratorPaths` (relative to the CWD or the optional `baseDirectory` of `ScribanGenerator`; an absolute `OutDirectory` is honoured). All templates are parsed through `TemplateParser`, which throws on syntax errors.
 
 ## Conventions
 

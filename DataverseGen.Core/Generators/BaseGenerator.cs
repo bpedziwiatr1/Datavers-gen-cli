@@ -16,6 +16,7 @@ public abstract class BaseGenerator
 	private readonly int _degreeOfParallelism;
 	private readonly bool _clearOutputDirectory;
 	private readonly IGenerationReporter _reporter;
+	private readonly string _baseDirectory;
 
 	protected BaseGenerator(
 		string templateName,
@@ -26,7 +27,8 @@ public abstract class BaseGenerator
 		string customApiOutPath = null,
 		IGenerationReporter reporter = null,
 		int degreeOfParallelism = 1,
-		bool clearOutputDirectory = false)
+		bool clearOutputDirectory = false,
+		string baseDirectory = null)
 	{
 		TemplateEngineModel = templateEngineModel;
 		TemplateDirName = templateDirName;
@@ -37,6 +39,7 @@ public abstract class BaseGenerator
 		_reporter = reporter ?? NullReporter.Instance;
 		_degreeOfParallelism = Math.Max(1, degreeOfParallelism);
 		_clearOutputDirectory = clearOutputDirectory;
+		_baseDirectory = baseDirectory;
 	}
 
 	protected abstract IEntityGenerator CreateEntityGenerator();
@@ -139,7 +142,7 @@ public abstract class BaseGenerator
 
 	private GenerationSession CreateSession()
 	{
-		string fullOutputPath = $"{Directory.GetCurrentDirectory()}\\{OutPath}\\";
+		string fullOutputPath = GeneratorPaths.ResolveOutput(OutPath, _baseDirectory);
 
 		return new GenerationSession
 		{
@@ -148,18 +151,12 @@ public abstract class BaseGenerator
 			TemplateName = TemplateName,
 			TemplateDirName = TemplateDirName,
 			FullOutputPath = fullOutputPath,
-			CustomApiPath = GetCustomApiPath(fullOutputPath),
+			CustomApiPath = GeneratorPaths.ResolveCustomApi(fullOutputPath, _customApiOutPath, _baseDirectory),
+			BaseDirectory = _baseDirectory,
 			Reporter = _reporter,
 			DegreeOfParallelism = _degreeOfParallelism,
 			Files = new GeneratedFileSink(_reporter)
 		};
-	}
-
-	private string GetCustomApiPath(string fullOutputPath)
-	{
-		return string.IsNullOrWhiteSpace(_customApiOutPath)
-			? $"{fullOutputPath}customapi"
-			: $"{Directory.GetCurrentDirectory()}\\{_customApiOutPath}\\";
 	}
 
 	private int GetGenerateItemCount()

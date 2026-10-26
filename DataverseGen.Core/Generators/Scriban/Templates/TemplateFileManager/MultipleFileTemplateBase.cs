@@ -9,15 +9,17 @@ public abstract class MultipleFileTemplateBase
 	private const string RestrictedTemplateMain = "Main";
 	private readonly string _templateDirName;
 	private readonly string _templateName;
+	private readonly string _baseDirectory;
 	private string _entityTemplateFilePath;
 	private string _enumsTemplateFilePath;
 	protected string DirectoryPath;
 	protected IGenerationReporter Reporter;
 
-	protected MultipleFileTemplateBase(string templateName, string templateDirName, IGenerationReporter reporter = null)
+	protected MultipleFileTemplateBase(string templateName, string templateDirName, IGenerationReporter reporter = null, string baseDirectory = null)
 	{
 		_templateName = templateName;
 		_templateDirName = templateDirName;
+		_baseDirectory = baseDirectory;
 		Reporter = reporter ?? NullReporter.Instance;
 	}
 
@@ -39,7 +41,7 @@ public abstract class MultipleFileTemplateBase
 
 	protected virtual void CheckFiles()
 	{
-		DirectoryPath = $"{Directory.GetCurrentDirectory()}\\{_templateDirName}\\{_templateName}\\";
+		DirectoryPath = GeneratorPaths.ResolveTemplateDirectory(_templateDirName, _templateName, _baseDirectory);
 		Reporter.Log(LogLevel.Debug, $@"Loading templates from path: {DirectoryPath}");
 
 		if (!Directory.Exists(DirectoryPath))
@@ -47,8 +49,8 @@ public abstract class MultipleFileTemplateBase
 			throw new ArgumentException($"Template '{_templateName}' not found in directory {DirectoryPath}");
 		}
 
-		_entityTemplateFilePath = $"{DirectoryPath}\\entity.sbncs";
-		_enumsTemplateFilePath = $"{DirectoryPath}\\enums.sbncs";
+		_entityTemplateFilePath = Path.Combine(DirectoryPath, "entity.sbncs");
+		_enumsTemplateFilePath = Path.Combine(DirectoryPath, "enums.sbncs");
 
 		if (!File.Exists(_entityTemplateFilePath))
 		{
@@ -64,18 +66,18 @@ public abstract class MultipleFileTemplateBase
 	protected virtual void SetMainTemplate()
 	{
 		EntityTemplate =
-			Template.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_entity));
+			TemplateParser.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_entity), null);
 
 		EnumsTemplate =
-			Template.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_enums));
+			TemplateParser.Parse(Encoding.UTF8.GetString(ScribanTemplates.Main_enums), null);
 	}
 
 	protected virtual void SetTemplateByFiles()
 	{
 		CheckFiles();
 		EntityTemplate =
-			Template.Parse(File.ReadAllText(_entityTemplateFilePath));
+			TemplateParser.ParseFile(_entityTemplateFilePath);
 
-		EnumsTemplate = Template.Parse(File.ReadAllText(_enumsTemplateFilePath));
+		EnumsTemplate = TemplateParser.ParseFile(_enumsTemplateFilePath);
 	}
 }

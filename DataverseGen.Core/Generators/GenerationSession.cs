@@ -19,6 +19,8 @@ public class GenerationSession
 
 	public string CustomApiPath { get; init; }
 
+	public string BaseDirectory { get; init; }
+
 	public IGenerationReporter Reporter { get; init; }
 
 	public int DegreeOfParallelism { get; init; }

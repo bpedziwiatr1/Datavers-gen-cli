@@ -22,17 +22,19 @@ public partial class EntitiesScribanGenerator : IEntityGenerator
 
 	public Action Generate(GenerationSession session, CancellationToken cancellationToken)
 	{
+		bool isSingle = session.TemplateEngineModel.IsSingleOutput;
+
 		switch (session.TemplateEngineModel.Type.ToLowerInvariant())
 		{
 			case "c#":
-				return session.TemplateEngineModel.IsSingleOutput
+				return isSingle
 					? RunSingleFile(session, "XrmServiceContext.cs", ScribanTemplates.dataversegen_single)
-					: MultiOutputGeneratorCSharp(session, cancellationToken);
+					: GenerateCSharpEntities(session, cancellationToken);
 
 			case "ts":
-				return session.TemplateEngineModel.IsSingleOutput
+				return isSingle
 					? RunSingleFile(session, "dataverse.metadata.ts", ScribanTemplates.dataversegen_single_ts)
-					: MultiOutputGeneratorTypeScript(session, cancellationToken);
+					: GenerateTypeScriptEntities(session, cancellationToken);
 
 			default:
 				throw new ArgumentOutOfRangeException("_templateEngineModel.Type",
@@ -47,24 +49,52 @@ public partial class EntitiesScribanGenerator : IEntityGenerator
 		   .TrimEnd();
 	}
 
-	private Action MultiOutputGeneratorCSharp(GenerationSession session, CancellationToken cancellationToken)
+	private Action GenerateCSharpEntities(GenerationSession session, CancellationToken cancellationToken)
 	{
-		MultipleFileTemplateCsharp templates = new(session.TemplateName, session.TemplateDirName, session.Reporter);
+		MultipleFileTemplateCsharp templates = new(session.TemplateName, session.TemplateDirName, session.Reporter, session.BaseDirectory);
 		templates.Init();
 
+		WriteEntityFiles(session,
+			cancellationToken,
+			[
+				new EntityOutput(templates.EntityTemplate, _legacyEntityFileNames ? "cs" : "entity.cs", false),
+				new EntityOutput(templates.FieldsTemplate, "Fields.cs", false),
+				new EntityOutput(templates.EnumsTemplate, "Enums.cs", false)
+			]);
+
+		return () => WriteXrmServiceContext(session, templates);
+	}
+
+	private Action GenerateTypeScriptEntities(GenerationSession session, CancellationToken cancellationToken)
+	{
+		MultipleFileTemplateTypescript templates = new(session.TemplateName, session.TemplateDirName, session.Reporter, session.BaseDirectory);
+		templates.Init();
+
+		WriteEntityFiles(session,
+			cancellationToken,
+			[
+				new EntityOutput(templates.EntityTemplate, _legacyEntityFileNames ? "attributes.ts" : "entity.ts", true),
+				new EntityOutput(templates.EnumsTemplate, "enums.ts", true),
+				new EntityOutput(templates.RelationshipTemplate, "relationships.ts", true)
+			]);
+
+		return null;
+	}
+
+	private static void WriteEntityFiles(
+		GenerationSession session,
+		CancellationToken cancellationToken,
+		EntityOutput[] outputs)
+	{
 		Parallel.ForEach(session.Context.Entities,
 			session.CreateParallelOptions(cancellationToken),
 			entity =>
 			{
 				session.Reporter.ItemStarted(ItemKind.Entity, ItemPhase.Generate, entity.LogicalName);
 				Stopwatch entityTimer = Stopwatch.StartNew();
-				long bytes = WriteEntityTemplateToFile(session, templates.EntityTemplate, entity, _legacyEntityFileNames ? "cs" : "entity.cs");
-				bytes += WriteEntityTemplateToFile(session, templates.FieldsTemplate, entity, "Fields.cs");
-				bytes += WriteEntityTemplateToFile(session, templates.EnumsTemplate, entity, "Enums.cs");
-				ReportEntityGenerated(session, entity, 3, bytes, entityTimer.Elapsed);
+				long bytes = outputs.Sum(output => WriteEntityTemplateToFile(session, output, entity));
+				ReportEntityGenerated(session, entity, outputs.Length, bytes, entityTimer.Elapsed);
 			});
-
-		return () => WriteXrmServiceContext(session, templates);
 	}
 
 	private static void WriteXrmServiceContext(GenerationSession session, MultipleFileTemplateCsharp templates)
@@ -74,41 +104,21 @@ public partial class EntitiesScribanGenerator : IEntityGenerator
 		string xrmContextContent =
 			RemoveEmptyLines(templates.XrmContextTemplate.Render(EntityViewBuilder.BuildContextView(session.Context)));
 
-		long contextBytes = session.Files.WriteFile($"{session.FullOutputPath}/XrmServiceContext.cs", xrmContextContent);
+		long contextBytes = session.Files.WriteFile(Path.Combine(session.FullOutputPath, "XrmServiceContext.cs"), xrmContextContent);
 		ReportOutputGenerated(session, "XrmServiceContext.cs", contextBytes, contextTimer.Elapsed);
-	}
-
-	private Action MultiOutputGeneratorTypeScript(GenerationSession session, CancellationToken cancellationToken)
-	{
-		MultipleFileTemplateTypescript templates = new(session.TemplateName, session.TemplateDirName, session.Reporter);
-		templates.Init();
-
-		Parallel.ForEach(session.Context.Entities,
-			session.CreateParallelOptions(cancellationToken),
-			entity =>
-			{
-				session.Reporter.ItemStarted(ItemKind.Entity, ItemPhase.Generate, entity.LogicalName);
-				Stopwatch entityTimer = Stopwatch.StartNew();
-				long bytes = WriteEntityTemplateToFile(session, templates.EntityTemplate, entity, _legacyEntityFileNames ? "attributes.ts" : "entity.ts");
-				bytes += WriteEntityTemplateToFile(session, templates.EnumsTemplate, entity, "enums.ts");
-				bytes += WriteEntityTemplateToFile(session, templates.RelationshipTemplate, entity, "relationships.ts");
-				ReportEntityGenerated(session, entity, 3, bytes, entityTimer.Elapsed);
-			});
-
-		return null;
 	}
 
 	private static Action RunSingleFile(GenerationSession session, string fileName, byte[] templateContent)
 	{
 		session.Reporter.ItemStarted(ItemKind.Output, ItemPhase.Generate, fileName);
 		Stopwatch timer = Stopwatch.StartNew();
-		Template template = Template.Parse(Encoding.UTF8.GetString(templateContent),
+		Template template = TemplateParser.Parse(Encoding.UTF8.GetString(templateContent),
 			null,
 			new ParserOptions(),
 			new LexerOptions { Mode = ScriptMode.Default });
 
 		string content = RemoveEmptyLines(ScribanRenderer.Render(template, EntityViewBuilder.BuildContextView(session.Context)));
-		long bytes = session.Files.WriteFile($"{session.FullOutputPath}{fileName}", content);
+		long bytes = session.Files.WriteFile(Path.Combine(session.FullOutputPath, fileName), content);
 		ReportOutputGenerated(session, fileName, bytes, timer.Elapsed);
 
 		return null;
@@ -147,27 +157,25 @@ public partial class EntitiesScribanGenerator : IEntityGenerator
 		});
 	}
 
-	private static long WriteEntityTemplateToFile(
-		GenerationSession session,
-		Template template,
-		MappingEntity entity,
-		string outputFileSuffixWithExtension)
+	private static long WriteEntityTemplateToFile(GenerationSession session, EntityOutput output, MappingEntity entity)
 	{
 		string entityContent =
-			RemoveEmptyLines(ScribanRenderer.Render(template, EntityViewBuilder.BuildEntityView(session.Context, entity)))
+			RemoveEmptyLines(ScribanRenderer.Render(output.Template, EntityViewBuilder.BuildEntityView(session.Context, entity)))
 			   .Replace("\n", "\r\n");
 
-		if (outputFileSuffixWithExtension.Contains("ts"))
+		if (output.TrailingNewline)
 		{
 			entityContent = $"{entityContent}\r\n";
 		}
 
-		string entityPath = $"{session.FullOutputPath}/{entity.HybridName.ToLower()}.{outputFileSuffixWithExtension}";
+		string entityPath = Path.Combine(session.FullOutputPath, $"{entity.HybridName.ToLower()}.{output.FileSuffix}");
 		long bytes = session.Files.WriteFile(entityPath, entityContent);
 		session.Reporter.Log(LogLevel.Debug, $@"Generated entity: {entity.LogicalName} -> {entityPath}");
 
 		return bytes;
 	}
+
+	private sealed record EntityOutput(Template Template, string FileSuffix, bool TrailingNewline);
 
 	[GeneratedRegex("^\\s*$\\n|\\r", RegexOptions.Multiline)]
 	private static partial Regex RemoveEmptyLinesRegexCompiled();
