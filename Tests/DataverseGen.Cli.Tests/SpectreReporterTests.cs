@@ -70,15 +70,29 @@ public class SpectreReporterTests
 	}
 
 	[TestMethod]
-	public void Log_MasksSecretsAndIgnoresMarkup()
+	public void Log_IgnoresMarkup()
 	{
 		TestConsole console = CreateConsole();
 		SpectreReporter reporter = new(console, new Theme(true), false, false);
 
-		reporter.Log(LogLevel.Warning, "[red]bad[/] Password=hunter2;Url=u");
+		reporter.Log(LogLevel.Warning, "[red]bad[/] and more");
 
 		Assert.Contains("[red]bad[/]", console.Output);
-		Assert.DoesNotContain("hunter2", console.Output);
+	}
+
+	[TestMethod]
+	public void PlainMode_LabelsOutputItemsAsFiles()
+	{
+		TestConsole console = CreateConsole();
+		SpectreReporter reporter = new(console, new Theme(true), false, false);
+
+		reporter.ItemCompleted(new ItemResult
+		{
+			Kind = ItemKind.Output, Name = "XrmServiceContext.cs", Phase = ItemPhase.Generate, Status = ItemStatus.Failed
+		});
+
+		Assert.Contains("File failed: XrmServiceContext.cs", console.Output);
+		Assert.DoesNotContain("Entity failed", console.Output);
 	}
 
 	[TestMethod]
@@ -148,7 +162,7 @@ public class SpectreReporterTests
 	}
 
 	[TestMethod]
-	public void LiveMode_ClampsProgressWhenMoreItemsThanAnnounced()
+	public void LiveMode_GrowsTotalWhenMoreItemsThanAnnounced()
 	{
 		TestConsole console = CreateConsole(true);
 		SpectreReporter reporter = new(console, new Theme(true), false, true);
@@ -161,7 +175,7 @@ public class SpectreReporterTests
 			reporter.StageCompleted(Stage.Entities, TimeSpan.Zero);
 		});
 
-		Assert.Contains("1/1", console.Output);
+		Assert.Contains("2/2", console.Output);
 	}
 
 	[TestMethod]

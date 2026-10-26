@@ -2,6 +2,9 @@
 # GitVersion 6 renamed deployment modes: v5 ContinuousDelivery -> ManualDeployment,
 # v5 ContinuousDeployment -> ContinuousDelivery.
 mode: ContinuousDelivery
+# Release tags are created as v<version> by the release workflow; an empty prefix keeps GitVersion
+# from using them as version source (that would reset the patch counter). Only plain x.y.z tags count.
+tag-prefix: ''
 assembly-versioning-scheme: MajorMinorPatchTag
 assembly-file-versioning-scheme: MajorMinorPatchTag
 ignore:

@@ -110,6 +110,103 @@ public class ScribanGeneratorTests
 		StringAssert.Contains(enums, "/// Project done for a customer");
 	}
 
+	[TestMethod]
+	public void GenerateTemplate_CSharp_EnumMembersHaveDescriptionWithLabel()
+	{
+		string enums = Generate("C#", false)["new_project.Enums.cs"];
+
+		StringAssert.Contains(enums, "using System.ComponentModel;");
+		StringAssert.Contains(enums, "[Description(\"Internal\")]");
+		StringAssert.Contains(enums, "[Description(\"Customer\")]");
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_TypeScriptMultiple_PreserveOptionSetLabels_RendersEnumKeys()
+	{
+		string enums = Generate("ts", false, preserveOptionSetLabels: true)["new_project.enums.ts"];
+
+		StringAssert.Contains(enums, "Internal = 100000000,");
+		StringAssert.Contains(enums, "Customer = 100000001,");
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_TypeScriptMultiple_PreserveOptionSetLabels_QuotesNonAsciiLabels()
+	{
+		string enums = Generate("ts", false, preserveOptionSetLabels: true, source: BuildProjectEntityWithInternationalLabels())["new_project.enums.ts"];
+
+		StringAssert.Contains(enums, "\"Potwierdź Zamówienie\" = 1,");
+		StringAssert.Contains(enums, "\"Zażółć gęślą jaźń\" = 2,");
+		StringAssert.Contains(enums, "\"Größe & Maße\" = 3,");
+		StringAssert.Contains(enums, "\"Überfällig\" = 4,");
+		StringAssert.Contains(enums, "\"Café Crème\" = 5,");
+		StringAssert.Contains(enums, "\"Привіт\" = 6,");
+		StringAssert.Contains(enums, "\"注文 確認\" = 7,");
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_TypeScriptMultiple_PreserveOptionSetLabelsOff_KeepsCleanedKeys()
+	{
+		string enums = Generate("ts", false, source: BuildProjectEntityWithInternationalLabels())["new_project.enums.ts"];
+
+		StringAssert.Contains(enums, "PotwierdzZamowienie = 1,");
+		Assert.IsFalse(enums.Contains("\"Potwierdź Zamówienie\""));
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_TypeScriptSingle_PreserveOptionSetLabels_QuotesNonAsciiLabels()
+	{
+		string metadata = Generate("ts", true, preserveOptionSetLabels: true, source: BuildProjectEntityWithInternationalLabels())["dataverse.metadata.ts"];
+
+		StringAssert.Contains(metadata, "\"Potwierdź Zamówienie\" = 1,");
+		StringAssert.Contains(metadata, "\"Größe & Maße\" = 3,");
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_CSharp_DescriptionKeepsNonAsciiLabels()
+	{
+		string enums = Generate("C#", false, source: BuildProjectEntityWithInternationalLabels())["new_project.Enums.cs"];
+
+		StringAssert.Contains(enums, "[Description(\"Potwierdź Zamówienie\")]");
+		StringAssert.Contains(enums, "[Description(\"Zażółć gęślą jaźń\")]");
+		StringAssert.Contains(enums, "[Description(\"Größe & Maße\")]");
+		StringAssert.Contains(enums, "[Description(\"Überfällig\")]");
+		StringAssert.Contains(enums, "[Description(\"注文 確認\")]");
+	}
+
+	[TestMethod]
+	public void GenerateTemplate_CSharpSingle_DescriptionKeepsNonAsciiLabels()
+	{
+		string context = Generate("C#", true, source: BuildProjectEntityWithInternationalLabels())["XrmServiceContext.cs"];
+
+		StringAssert.Contains(context, "[Description(\"Potwierdź Zamówienie\")]");
+		StringAssert.Contains(context, "[Description(\"Café Crème\")]");
+	}
+
+	private static EntityMetadata BuildProjectEntityWithInternationalLabels()
+	{
+		EntityMetadata entity = BuildProjectEntity();
+
+		PicklistAttributeMetadata orderStatus = Attribute(new PicklistAttributeMetadata
+			{
+				OptionSet = BuildOptionSet(
+					(1, "Potwierdź Zamówienie"),
+					(2, "Zażółć gęślą jaźń"),
+					(3, "Größe & Maße"),
+					(4, "Überfällig"),
+					(5, "Café Crème"),
+					(6, "Привіт"),
+					(7, "注文 確認"))
+			},
+			"new_orderstatus",
+			"new_OrderStatus",
+			"Order Status");
+
+		AttributeMetadata[] attributes = entity.Attributes.Append(orderStatus).ToArray();
+		SetSealed(entity, nameof(EntityMetadata.Attributes), attributes);
+
+		return entity;
+	}
+
 	private static Dictionary<string, bool> GenerateOverExistingFiles(bool clearOutputDirectory)
 	{
 		string originalDirectory = Directory.GetCurrentDirectory();
@@ -197,7 +294,9 @@ public class ScribanGeneratorTests
 		string type,
 		bool isSingleOutput,
 		bool legacyEntityFileNames = false,
-		int degreeOfParallelism = 1)
+		int degreeOfParallelism = 1,
+		bool preserveOptionSetLabels = false,
+		EntityMetadata source = null)
 	{
 		string originalDirectory = Directory.GetCurrentDirectory();
 		string tempRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -207,7 +306,7 @@ public class ScribanGeneratorTests
 		{
 			Directory.SetCurrentDirectory(tempRoot);
 
-			MappingEntity project = MappingEntity.Parse(BuildProjectEntity());
+			MappingEntity project = MappingEntity.Parse(source ?? BuildProjectEntity());
 			LinkSelfReferencedRelationships(project);
 
 			Context context = new()
@@ -215,6 +314,7 @@ public class ScribanGeneratorTests
 				Namespace = "Test.Dataverse",
 				Entities = new[] { project }
 			};
+			context.Info.PreserveOptionSetLabels = preserveOptionSetLabels;
 
 			ScribanGenerator generator = new("Main",
 				"Templates",

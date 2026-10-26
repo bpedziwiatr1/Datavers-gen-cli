@@ -1,6 +1,4 @@
 using DataverseGen.Core.CustomApi;
-using DataverseGen.Core.Generators;
-using DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
 using DataverseGen.Core.Reporting;
 
 namespace DataverseGen.Core.Tests.Generators;
@@ -25,18 +23,14 @@ public class CustomApiGenerateReportingTests
 	}
 
 	[TestMethod]
-	public void WriteCustomApis_TypeScript_ReportsGeneratePhaseWithFilesAndBytes()
+	public void Generate_TypeScript_ReportsGeneratePhaseWithFilesAndBytes()
 	{
 		string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 		RecordingReporter reporter = new();
 
 		try
 		{
-			CustomApiTypeScriptGenerator.WriteCustomApis(root,
-				Apis(),
-				CustomApiTemplates.LoadBuiltIn(true),
-				null,
-				reporter);
+			CustomApiTestHost.Write(root, "ts", Apis(), reporter);
 
 			Assert.HasCount(2, reporter.Items);
 			Assert.IsTrue(reporter.Items.All(i => i.Phase == ItemPhase.Generate && i.Kind == ItemKind.CustomApi));
@@ -54,19 +48,14 @@ public class CustomApiGenerateReportingTests
 	}
 
 	[TestMethod]
-	public void WriteCustomApis_CSharp_ReportsGeneratePhaseWithFilesAndBytes()
+	public void Generate_CSharp_ReportsGeneratePhaseWithFilesAndBytes()
 	{
 		string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 		RecordingReporter reporter = new();
 
 		try
 		{
-			CustomApiCSharpGenerator.WriteCustomApis(root,
-				"Test.Ns",
-				Apis(),
-				CustomApiTemplates.LoadBuiltIn(false),
-				null,
-				reporter);
+			CustomApiTestHost.Write(root, "C#", Apis(), reporter);
 
 			Assert.AreEqual(new[] { 1, 2 }.Sum(), reporter.Items.Sum(i => i.Files));
 			Assert.AreEqual(Directory.GetFiles(root).Sum(f => new FileInfo(f).Length), reporter.Items.Sum(i => i.Bytes));

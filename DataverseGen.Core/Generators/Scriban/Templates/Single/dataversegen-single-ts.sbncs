@@ -17,7 +17,7 @@ type {{entity.hybrid_name}}_attributes =
 enum {{enm.display_name}}_{{entity.hybrid_name }}
 {
         {{for item in enm.items}}
-    {{item.name}} = {{item.value}},
+    {{info.preserve_option_set_labels ? item.ts_key : item.name}} = {{item.value}},
         {{end}}
 }
     {{end}}

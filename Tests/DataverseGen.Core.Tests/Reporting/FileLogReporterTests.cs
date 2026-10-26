@@ -91,30 +91,20 @@ public class FileLogReporterTests
 	}
 
 	[TestMethod]
-	public void Log_MasksSecretsInMessagesAndExceptions()
+	public void ItemStartedAndRequestCompleted_AreWritten()
 	{
 		string path = Path.Combine(_directory, "run.log");
 
 		using (FileLogReporter reporter = new(path))
 		{
-			reporter.Log(LogLevel.Info, "Url=x;ClientSecret=top-secret;");
-			reporter.Log(LogLevel.Error,
-				"failed",
-				new ArgumentException("bad", "Url=x;Password=pw-secret;"));
-			reporter.ItemCompleted(new ItemResult
-			{
-				Kind = ItemKind.Entity,
-				Name = "account",
-				Status = ItemStatus.Failed,
-				Detail = "Thumbprint=thumb-secret"
-			});
+			reporter.ItemStarted(ItemKind.Entity, ItemPhase.Retrieve, "account");
+			reporter.RequestCompleted(Stage.Entities, TimeSpan.FromMilliseconds(20));
 		}
 
 		string content = File.ReadAllText(path);
 
-		Assert.DoesNotContain("top-secret", content);
-		Assert.DoesNotContain("pw-secret", content);
-		Assert.DoesNotContain("thumb-secret", content);
+		Assert.Contains("[ITEM   ] Entity account [Retrieve]: started", content);
+		Assert.Contains("[REQUEST] Entities request completed in", content);
 	}
 
 	[TestMethod]

@@ -20,18 +20,20 @@ internal static class CustomApiTemplates
 		string templateName,
 		string templateDirName,
 		bool isTypeScript,
-		IGenerationReporter reporter = null)
+		IGenerationReporter reporter = null,
+		string baseDirectory = null)
 	{
-		return Load(templateName, templateDirName, isTypeScript, false, reporter);
+		return Load(templateName, templateDirName, isTypeScript, false, reporter, baseDirectory);
 	}
 
 	public static Template LoadResponse(
 		string templateName,
 		string templateDirName,
 		bool isTypeScript,
-		IGenerationReporter reporter = null)
+		IGenerationReporter reporter = null,
+		string baseDirectory = null)
 	{
-		return Load(templateName, templateDirName, isTypeScript, true, reporter);
+		return Load(templateName, templateDirName, isTypeScript, true, reporter, baseDirectory);
 	}
 
 	public static Template LoadBuiltIn(bool isTypeScript)
@@ -46,18 +48,7 @@ internal static class CustomApiTemplates
 
 	public static string Render(Template template, object view)
 	{
-		ScriptObject scriptObject = new();
-		scriptObject.Import(view);
-
-		TemplateContext context = new()
-		{
-			LoopLimit = 0,
-			RecursiveLimit = 0
-		};
-
-		context.PushGlobal(scriptObject);
-
-		return template.Render(context)
+		return ScribanRenderer.Render(template, view)
 		   .Replace("\r\n", "\n")
 		   .Replace("\n", "\r\n");
 	}
@@ -67,20 +58,21 @@ internal static class CustomApiTemplates
 		string templateDirName,
 		bool isTypeScript,
 		bool isResponse,
-		IGenerationReporter reporter)
+		IGenerationReporter reporter,
+		string baseDirectory)
 	{
 		reporter ??= NullReporter.Instance;
 
 		if (!string.Equals(templateName, RestrictedTemplateMain, StringComparison.InvariantCultureIgnoreCase))
 		{
 			string fileName = isResponse ? ResponseTemplateFileName : TemplateFileName;
-			string path = $"{Directory.GetCurrentDirectory()}\\{templateDirName}\\{templateName}\\{fileName}";
+			string path = Path.Combine(GeneratorPaths.ResolveTemplateDirectory(templateDirName, templateName, baseDirectory), fileName);
 
 			if (File.Exists(path))
 			{
 				reporter.Log(LogLevel.Debug, $@"Loading custom API template from path: {path}");
 
-				return Parse(File.ReadAllText(path), path);
+				return TemplateParser.ParseFile(path);
 			}
 
 			reporter.Log(LogLevel.Debug,
@@ -100,19 +92,7 @@ internal static class CustomApiTemplates
 			_ => ScribanTemplates.Main_customapi
 		};
 
-		return Parse(Encoding.UTF8.GetString(content), null);
+		return TemplateParser.Parse(Encoding.UTF8.GetString(content), null);
 	}
 
-	private static Template Parse(string text, string sourcePath)
-	{
-		Template template = Template.Parse(text, sourcePath);
-
-		if (template.HasErrors)
-		{
-			throw new InvalidOperationException(
-				$"Custom API template {sourcePath ?? "(built-in)"} is invalid: {string.Join("; ", template.Messages)}");
-		}
-
-		return template;
-	}
 }

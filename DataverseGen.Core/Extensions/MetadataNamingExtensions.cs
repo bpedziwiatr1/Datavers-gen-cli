@@ -95,6 +95,31 @@ public static partial class MetadataNamingExtensions
 			: Clean(schemaName);
 	}
 
+	internal static string ToPascalCase(string value)
+	{
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return string.Empty;
+		}
+
+		char[] separators = [' ', '_', '-', '.', '/', '\\'];
+		StringBuilder builder = new();
+
+		foreach (string part in value.Split(separators, StringSplitOptions.RemoveEmptyEntries))
+		{
+			string trimmed = part.Trim();
+
+			if (trimmed.Length == 0)
+			{
+				continue;
+			}
+
+			builder.Append(char.ToUpperInvariant(trimmed[0]));
+			builder.Append(trimmed[1..]);
+		}
+
+		return builder.ToString();
+	}
 	public static string XmlEscape(this string unescaped)
 	{
 		return unescaped

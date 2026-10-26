@@ -110,46 +110,6 @@ public class DataverseCustomApiConverterTests
 	}
 
 	[TestMethod]
-	[DataRow("Collection of strings", "", "string[]", "string[]", "Collection(Edm.String)", "WebApiRequestStructuralProperty.Collection")]
-	[DataRow("Entity", "account", "any", "EntityReference", "mscrm.account", "WebApiRequestStructuralProperty.EntityType")]
-	[DataRow("Whole Number", "", "number", "int", "Edm.Int32", "WebApiRequestStructuralProperty.PrimitiveType")]
-	[DataRow("Date and Time", "", "Date", "DateTime", "Edm.DateTimeOffset", "WebApiRequestStructuralProperty.PrimitiveType")]
-	[DataRow("", "", "string", "string", "Edm.String", "WebApiRequestStructuralProperty.PrimitiveType")]
-		[DataRow(null!, "", "string", "string", "Edm.String", "WebApiRequestStructuralProperty.PrimitiveType")]
-	[DataRow("Unknown Type", "", "string", "string", "Edm.String", "WebApiRequestStructuralProperty.PrimitiveType")]
-	public void NormalizeCustomApiParameterType_MapsCommonTypes(
-		string typeLabel,
-		string logicalEntityName,
-		string expectedTypeScriptType,
-		string expectedCSharpTypeName,
-		string expectedWebApiTypeName,
-		string expectedStructuralProperty)
-	{
-		MethodInfo? method = typeof(DataverseCustomApiConverter).GetMethod(
-			"NormalizeCustomApiParameterType",
-			BindingFlags.NonPublic | BindingFlags.Static);
-
-		Assert.IsNotNull(method);
-
-		object[] parameters =
-		{
-			typeLabel,
-			logicalEntityName,
-			null!,
-			null!,
-			null!,
-			null!
-		};
-
-		method!.Invoke(null, parameters);
-
-		Assert.AreEqual(expectedTypeScriptType, parameters[2]);
-		Assert.AreEqual(expectedCSharpTypeName, parameters[3]);
-		Assert.AreEqual(expectedWebApiTypeName, parameters[4]);
-		Assert.AreEqual(expectedStructuralProperty, parameters[5]);
-	}
-
-	[TestMethod]
 	[DataRow("Entity", "Entity", "any")]
 	[DataRow("EntityCollection", "EntityCollection", "any[]")]
 	[DataRow("EntityReference", "EntityReference", "any")]
@@ -173,15 +133,20 @@ public class DataverseCustomApiConverterTests
 	}
 
 	[TestMethod]
-	public void ParseParameter_RequestKeepsSubstringTypeMapping()
+	[DataRow("EntityCollection", "EntityCollection", "any[]")]
+	[DataRow("Picklist", "int", "number")]
+	[DataRow("StringArray", "string[]", "string[]")]
+	[DataRow("Money", "Money", "number")]
+	public void ParseParameter_RequestUsesExactTypes(string type, string expectedCSharp, string expectedTypeScript)
 	{
 		Entity entity = new("customapirequestparameter") { Id = Guid.NewGuid() };
 		entity["uniquename"] = "items";
-		entity["type"] = "EntityCollection";
+		entity["type"] = type;
 
 		CustomApiParameterModel parameter = DataverseCustomApiConverter.ParseParameter(entity, false);
 
-		Assert.AreEqual("string[]", parameter.CSharpTypeName);
+		Assert.AreEqual(expectedCSharp, parameter.CSharpTypeName);
+		Assert.AreEqual(expectedTypeScript, parameter.TypeScriptType);
 	}
 
 	private static Entity CreateCustomApiEntity(string id, string uniqueName)

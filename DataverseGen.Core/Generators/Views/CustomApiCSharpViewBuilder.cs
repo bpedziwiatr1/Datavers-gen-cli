@@ -1,99 +1,13 @@
-using System.Diagnostics;
 using System.Security;
 using System.Text;
 using DataverseGen.Core.CustomApi;
 using DataverseGen.Core.Extensions;
-using DataverseGen.Core.Generators.Scriban.Templates.TemplateFileManager;
-using DataverseGen.Core.Reporting;
-using Scriban;
 
-namespace DataverseGen.Core.Generators;
+namespace DataverseGen.Core.Generators.Views;
 
-public static class CustomApiCSharpGenerator
+internal static class CustomApiCSharpViewBuilder
 {
 	private static readonly HashSet<string> ValueTypeNames = ["bool", "int", "long", "decimal", "double", "float", "DateTime", "Guid"];
-
-	public static void WriteCustomApis(string outPath, string namespaceName, IEnumerable<CustomApiModel> customApis)
-	{
-		WriteCustomApis(outPath, namespaceName, customApis, CustomApiTemplates.LoadBuiltIn(false));
-	}
-
-	public static void WriteCustomApis(
-		string outPath,
-		string namespaceName,
-		IEnumerable<CustomApiModel> customApis,
-		Template template,
-		Template responseTemplate = null,
-		IGenerationReporter reporter = null,
-		int degreeOfParallelism = 1,
-		CancellationToken cancellationToken = default,
-		Action<string> onFileWritten = null)
-	{
-		if (customApis == null)
-		{
-			return;
-		}
-
-		reporter ??= NullReporter.Instance;
-
-		string customApiDirectory = outPath;
-		Directory.CreateDirectory(customApiDirectory);
-
-		CustomApiModel[] apis = customApis.ToArray();
-		bool anyResponse = apis.Any(api => api.ResponseProperties is { Length: > 0 });
-		responseTemplate ??= anyResponse ? CustomApiTemplates.LoadBuiltInResponse(false) : null;
-
-		Parallel.ForEach(apis,
-			new ParallelOptions
-			{
-				MaxDegreeOfParallelism = Math.Max(1, degreeOfParallelism),
-				CancellationToken = cancellationToken
-			},
-			customApi =>
-		{
-			reporter.ItemStarted(ItemKind.CustomApi, ItemPhase.Generate, customApi.UniqueName);
-			Stopwatch timer = Stopwatch.StartNew();
-			int files = 1;
-			string filePath = Path.Combine(customApiDirectory, $"{customApi.RequestClassName.ToLowerInvariant()}.customapi.cs");
-			File.WriteAllText(filePath, RenderRequestClass(namespaceName, customApi, template), Encoding.UTF8);
-			onFileWritten?.Invoke(filePath);
-			onFileWritten?.Invoke(filePath);
-			long bytes = new FileInfo(filePath).Length;
-			reporter.Log(LogLevel.Debug, $@"Generated custom API: {customApi.UniqueName} -> {filePath}");
-
-			if (customApi.ResponseProperties is { Length: > 0 })
-			{
-				string responsePath = Path.Combine(customApiDirectory, $"{customApi.ResponseClassName.ToLowerInvariant()}.customapi.cs");
-				File.WriteAllText(responsePath, RenderResponseClass(namespaceName, customApi, responseTemplate), Encoding.UTF8);
-				onFileWritten?.Invoke(responsePath);
-				onFileWritten?.Invoke(responsePath);
-				files++;
-				bytes += new FileInfo(responsePath).Length;
-				reporter.Log(LogLevel.Debug, $@"Generated custom API response: {customApi.UniqueName} -> {responsePath}");
-			}
-
-			reporter.ItemCompleted(new ItemResult
-			{
-				Kind = ItemKind.CustomApi,
-				Phase = ItemPhase.Generate,
-				Name = customApi.UniqueName,
-				Status = ItemStatus.Ok,
-				Elapsed = timer.Elapsed,
-				Files = files,
-				Bytes = bytes
-			});
-		});
-	}
-
-	internal static string RenderResponseClass(string namespaceName, CustomApiModel customApi)
-	{
-		return RenderResponseClass(namespaceName, customApi, CustomApiTemplates.LoadBuiltInResponse(false));
-	}
-
-	internal static string RenderResponseClass(string namespaceName, CustomApiModel customApi, Template template)
-	{
-		return CustomApiTemplates.Render(template, BuildResponseView(namespaceName, customApi));
-	}
 
 	internal static CustomApiCSharpResponseView BuildResponseView(string namespaceName, CustomApiModel customApi)
 	{
@@ -122,16 +36,6 @@ public static class CustomApiCSharpGenerator
 			: SecurityElement.Escape(description);
 	}
 
-	internal static string RenderRequestClass(string namespaceName, CustomApiModel customApi)
-	{
-		return RenderRequestClass(namespaceName, customApi, CustomApiTemplates.LoadBuiltIn(false));
-	}
-
-	internal static string RenderRequestClass(string namespaceName, CustomApiModel customApi, Template template)
-	{
-		return CustomApiTemplates.Render(template, BuildView(namespaceName, customApi));
-	}
-
 	internal static CustomApiCSharpView BuildView(string namespaceName, CustomApiModel customApi)
 	{
 		List<CustomApiCSharpParameterView> requestParameters = customApi.RequestParameters
@@ -156,7 +60,7 @@ public static class CustomApiCSharpGenerator
 		{
 			Namespace = namespaceName,
 			ClassName = customApi.RequestClassName,
-			OperationName = EscapeString(customApi.OperationName),
+			OperationName = CustomApiText.EscapeString(customApi.OperationName),
 			ConstructorParameters = constructorParameters,
 			Properties = properties
 		};
@@ -171,7 +75,7 @@ public static class CustomApiCSharpGenerator
 			Summary = GetSummary(parameter),
 			PropertyName = GetPropertyName(parameter),
 			ParameterName = GetParameterName(parameter),
-			RequestPropertyName = EscapeString(parameter.RequestPropertyName)
+			RequestPropertyName = CustomApiText.EscapeString(parameter.RequestPropertyName)
 		};
 	}
 
@@ -221,7 +125,7 @@ public static class CustomApiCSharpGenerator
 			return sanitized;
 		}
 
-		return ToPascalCase(sanitized);
+		return MetadataNamingExtensions.ToPascalCase(sanitized);
 	}
 
 	private static string GetParameterName(CustomApiParameterModel parameter)
@@ -248,43 +152,6 @@ public static class CustomApiCSharpGenerator
 		return parameter.IsOptional && ValueTypeNames.Contains(typeName)
 			? $"{typeName}?"
 			: typeName;
-	}
-
-	private static string EscapeString(string value)
-	{
-		return string.IsNullOrEmpty(value)
-			? string.Empty
-			: value.Replace("\\", "\\\\").Replace("\"", "\\\"");
-	}
-
-	private static string ToPascalCase(string value)
-	{
-		if (string.IsNullOrWhiteSpace(value))
-		{
-			return string.Empty;
-		}
-
-		char[] separators = [' ', '_', '-', '.', '/', '\\'];
-		string[] parts = value.Split(separators, StringSplitOptions.RemoveEmptyEntries);
-		StringBuilder builder = new();
-
-		for (int i = 0; i < parts.Length; i++)
-		{
-			string part = parts[i].Trim();
-
-			if (part.Length == 0)
-			{
-				continue;
-			}
-
-			builder.Append(char.ToUpperInvariant(part[0]));
-			if (part.Length > 1)
-			{
-				builder.Append(part[1..]);
-			}
-		}
-
-		return builder.ToString();
 	}
 
 	private static bool IsCSharpKeyword(string value)

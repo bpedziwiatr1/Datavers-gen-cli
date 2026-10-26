@@ -53,6 +53,10 @@ public class ConfigModel
 
 	/// <summary>Remove previously generated files (marked <c>&lt;auto-generated&gt;</c>) from the output folders that were not written in this run. Default: <c>true</c>.</summary>
 	public bool ClearOutputDirectory { get; set; } = true;
+	[JsonProperty]
+
+	/// <summary>TypeScript output only: use the exact CRM option labels as enum keys (quoted when they are not valid identifiers) instead of sanitized names. Default: <c>false</c>.</summary>
+	public bool PreserveOptionSetLabels { get; set; }
 }
 
 [Serializable]

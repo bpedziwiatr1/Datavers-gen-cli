@@ -16,6 +16,14 @@ public class ConfigModelTests
 	}
 
 	[TestMethod]
+	public void ConfigModel_PreserveOptionSetLabels_DefaultsToFalseAndDeserializes()
+	{
+		Assert.IsFalse(new ConfigModel().PreserveOptionSetLabels);
+		Assert.IsFalse(Newtonsoft.Json.JsonConvert.DeserializeObject<ConfigModel>("{}")!.PreserveOptionSetLabels);
+		Assert.IsTrue(Newtonsoft.Json.JsonConvert.DeserializeObject<ConfigModel>("{\"PreserveOptionSetLabels\":true}")!.PreserveOptionSetLabels);
+	}
+
+	[TestMethod]
 	public void ConfigModel_ClearOutputDirectory_DefaultsToTrue()
 	{
 		Assert.IsTrue(new ConfigModel().ClearOutputDirectory);

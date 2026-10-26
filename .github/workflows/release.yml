@@ -59,7 +59,9 @@ jobs:
         shell: pwsh
         run: |
           $gitv = dotnet-gitversion | ConvertFrom-Json -ErrorAction Stop
-          $tag = "v$($gitv.SemVer)"
+          # Major.Minor from the release branch / tags, patch = commits since the version source.
+          $version = "$($gitv.Major).$($gitv.Minor).$($gitv.CommitsSinceVersionSource)"
+          $tag = "v$version"
           $title = "Release $tag"
           $notesPath = Join-Path $env:GITHUB_WORKSPACE 'release-notes.md'
           $previousTag = git describe --tags --abbrev=0 --match "[0-9]*" --match "v[0-9]*" 2>$null
@@ -137,8 +139,7 @@ jobs:
             '### Summary'
             ''
             "- Release branch: $bt$($env:GITHUB_REF_NAME)$bt"
-            "- Version: $bt$($gitv.FullSemVer)$bt"
-            "- SemVer: $bt$($gitv.SemVer)$bt"
+            "- Version: $bt$version$bt"
             "- Commit: $bt$($gitv.Sha)$bt"
             "- Base tag: $bt$($prevTagText)$bt"
             "- Commit range: $bt$($commitRange)$bt"
@@ -148,9 +149,9 @@ jobs:
             ''
             '## Packages'
             ''
-            "- $($bt)DataverseGen-CLI_includedotnet_$($gitv.SemVer).zip$bt"
-            "- $($bt)DataverseGen-CLI_nodotnet_$($gitv.SemVer).zip$bt"
-            "- $($bt)DataverseGen.Tool.$($gitv.SemVer).nupkg$bt (dotnet tool)"
+            "- $($bt)DataverseGen-CLI_includedotnet_$version.zip$bt"
+            "- $($bt)DataverseGen-CLI_nodotnet_$version.zip$bt"
+            "- $($bt)DataverseGen.Tool.$version.nupkg$bt (dotnet tool)"
           )
 
           $releaseNotes | Set-Content -Path $notesPath -Encoding utf8
