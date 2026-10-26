@@ -8,6 +8,7 @@
 // the code is regenerated.
 // </auto-generated>
 // ------------------------------------------------------------------------------
+using System.ComponentModel;
 using System.Runtime.Serialization;
 namespace Test.Dataverse
 {
@@ -23,11 +24,13 @@ namespace Test.Dataverse
                     public enum new_Category
                     {
                                 [EnumMember]
+                                [Description("Internal")]
                                     Internal = 100000000,
                                     /// <summary>
                                     /// Project done for a customer
                                     /// </summary>
                                 [EnumMember]
+                                [Description("Customer")]
                                     Customer = 100000001,
                     }
                         /// <summary>
@@ -38,8 +41,10 @@ namespace Test.Dataverse
                     public enum new_IsActive
                     {
                                 [EnumMember]
+                                [Description("Yes")]
                                     Yes = 1,
                                 [EnumMember]
+                                [Description("No")]
                                     No = 0,
                     }
                         /// <summary>
@@ -50,8 +55,10 @@ namespace Test.Dataverse
                     public enum statecode
                     {
                                 [EnumMember]
+                                [Description("Active")]
                                     Active = 0,
                                 [EnumMember]
+                                [Description("Inactive")]
                                     Inactive = 1,
                     }
                         /// <summary>
@@ -62,8 +69,10 @@ namespace Test.Dataverse
                     public enum statuscode
                     {
                                 [EnumMember]
+                                [Description("Active")]
                                     Active = 1,
                                 [EnumMember]
+                                [Description("Inactive")]
                                     Inactive = 2,
                     }
         }
